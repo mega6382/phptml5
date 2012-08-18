@@ -461,7 +461,7 @@ class TagTest extends PHPUnit_Framework_TestCase {
             '<h1 id="a1">Ola Mundo</h1>',
             '<div>Ola Mundo <span class="xyz htz">Teste XYZ</span> Mais um texto</div>',
             '<div>Ola Mundo <a href="http://www.uol.com.br">Teste XYZ</a><blockquote>Ola Mundo 1<span>Teste XYZ 1</span></blockquote></div>',
-            array(2, '<div>Ola Mundo <span>Teste XYZ</span></div><h1 id="a1">Ola Mundo</h1>'),
+            array(2, '<div>Ola Mundo <span>Teste XYZ</span></div><h1 id="a2">Ola Mundo</h1>'),
         );
         
         $total = 0;
@@ -487,20 +487,24 @@ class TagTest extends PHPUnit_Framework_TestCase {
         
         // Gran Finalle
         $obj = Tag::parse('<body>'.$all.'</body>');
+        $this->assertEquals('<body>'.$all.'</body>', $obj[0]->toString());
         $this->assertEquals(1, count($obj));
-        $this->assertEquals('<body>'.$all.'</body>', count($obj));
         
         $obj = Tag::parse($all);
         $this->assertEquals($total, count($obj));
         foreach ($htmls as $i => $html) {
              if (is_array($html)) {
-                 foreach ($html as $j => $h) {
-                     $this->assertEquals($h, $obj[$i + $j]);
+                 $expected = "";
+                 for ($j = 0; $j < $html[0]; $j++) {
+                    $expected .= $obj[$i + $j]->toString();
                  }
-             } 
+                 $this->assertEquals($html[1], $expected);
+             }
              else {
-                $this->assertEquals($html, $obj[$i]);
+                $this->assertEquals($html, $obj[$i]->toString());
              }
         }
+        
+        //TODO Parse with errors (What to do)
     }
 }
