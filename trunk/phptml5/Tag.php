@@ -607,15 +607,35 @@ abstract class Tag {
      * @todo Convert return type (from  array to Tags)
      */
     public static function parse($html) {
-        require_once 'import/HtmlParser.php';
-        $parser = new HtmlParser($html);
+        $doc = new HTMLParser();
+        $doc->strictErrorChecking = false;
+        $doc->loadHTML($html);   
+        $node = $doc->toArray();
         
-        $list = array();
-        $nodes = $parser->toArray();
-        krsort($nodes); // Bug (is necessary invert by keys)
-        if (count($nodes) > 4) {
-            var_dump($nodes, $html);
+        //Search for first tag
+        $tag = '';
+        $caracs = array(' ','<','>');
+        $open = false;
+        for($i=0; $i < strlen($html); $i++) {
+            $c = $html[$i];
+            if (in_array($c, $caracs) && $open) break;
+            if (in_array($c, $caracs)) continue;
+            $tag .= $c;
+            $open = true;
         }
+        $tag = strtolower($tag);
+        $nodes = array();
+        if ($tag == 'html') {
+            $nodes[] = $node;
+        }
+        else if ($tag == 'body' || $tag == 'head') {
+            $nodes = $node['childNodes'];
+        }
+        else {
+            $nodes = $node['childNodes'][0]['childNodes'];
+        }
+        var_dump($tag);
+        $list = array();
         foreach ($nodes as $node) {
             $list[] = self::parseNode($node);
         }
@@ -638,45 +658,19 @@ abstract class Tag {
             $obj = new GenericTag($tagName);
         }
 
-        // Parse Attributes
-        if (!empty($node['stratr'])) {
-            $attrs = array();
-            // TODO Pode não mantér a ordem exatada porque o parse esta ocorrendo em duas etapas
-            preg_match_all('/(\S+)\s*=\s*"((?:\\\\.|[^\\"])*)"/', $node['stratr'], $matche1, PREG_SET_ORDER);
-            preg_match_all('/(\S+)\s*=\s*\'((?:\\\\.|[^\\"])*)\'/', $node['stratr'], $matche2, PREG_SET_ORDER);
-            $matches = array_merge($matche1, $matche2);
-            foreach ($matches as $value) {
-                if (count($value) == 3) {
-                    if (empty($value[1]) || empty($value[2])) continue;
-                    $attrs[$value[1]] = $value[2];
-                }
-            }
-
-            if (count($attrs)) {
-                $obj->attr($attrs);
-            }
+        // Set Attributes
+        if (count($node['attributes'])) {
+            $obj->attr($node['attributes']);
         }
 
         // Parse Content
-        if (count($node['childNodes'])) {
-            $innerHTML = $node['innerHTML'];
-            foreach ($node['childNodes'] as $content) {
-                // Verificando a existencia de texto antes do elemento
-                $parts = explode($content['htmlText'], $innerHTML, 2);
-                
-                if (count($parts) == 2) {
-                    if (!empty($parts[0]))
-                        $obj->append($parts[0]);
-                    $innerHTML = $parts[1];
-                }
-                //Adicionando o elemento
+        foreach($node['childNodes'] as $content) {
+            if (is_string($content)) {
+                $obj->append(strip_tags($content));
+            }
+            else {
                 $obj->append(self::parseNode($content));
             }
-            if (!empty($innerHTML))
-                $obj->append($innerHTML);
-        }
-        else {
-            $obj->text(strip_tags($node['innerHTML']));
         }
         
         return $obj;
