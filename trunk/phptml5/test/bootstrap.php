@@ -11,5 +11,5 @@
 require_once (str_replace('\\', '/', dirname(__FILE__)) . '/../phptml5.php'); 
 
 ini_set('include_path', ini_get('include_path').PATH_SEPARATOR.'C:/php/PEAR/PHPUnit');
-var_dump(ini_get('include_path'));
+
 ?>
