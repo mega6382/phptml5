@@ -1,72 +1,136 @@
 <?php
 /**
- * Possui classes abstratas fornecendo a base dos elementos htmls
- */
-
-/**
- * Representa um elemento HTML abstrato.
- * Todos os elementos devem herdar esta classe
+ * This class represents an abstract HTML element
+ * In this implementation the Tag is based in $.fn jQuery object
+ * Otherwise it doesn't support direct instance
  *
  * @author Adriano_2012
  */
 abstract class Tag {
     /**
-     * Pai do elemento
+     * Referente to parent element
      * @var Tag 
      */
-    private $parent;
+    protected $parent;
     
     /**
-     * Vetor contendo os filhos do elemento.
-     * O vetor pode ter elementos do tipo string e elementos do tipo Tag
+     * Array of childs
+     * Contains string elements (just text) or Tag elements
      * 
-     * @var array<string|Tag>
+     * @var array - Array of string and Tag
      */
-    private $content = array();
+    protected $content = array();
     
     /**
-     * Vetor associativo com os atributos (chave) e valores (valor)
+     * Associative array for attributes.
+     * Key is attribute name and value is attribute value
      * 
-     * @var array<string> Exemplo: array('nomeDoAtributo'=>'valor');
+     * @var array - Array of strings. Ex: array('attributeName'=>'AttributeValue');
      */
-    private $attributes = array();
+    protected $attributes = array();
     
-    /* Metodos abstratos */
+    /* Abstract methods */
     
     /**
-     * Retorna o nome da tag
+     * Return element tag name
      * 
      * @return string
      */
     protected abstract function getTagName();
     
     /**
-     * Retorna se a tag possui tag de fechamento ou não
+     * Return if element has closing tag or not
      * 
-     * @return boolean - TRUE se possui tag de fechamento, FALSE caso contrario
+     * @return boolean - TRUE if element has closing tag and FALSE otherwise
      */
     protected abstract function hasEndtag();
     
     /**
-     * Retorna a lista de atributos que é permitido ao elemento.
-     * Não deve incluir os atributos comuns, apenas os especificos para o tipo
+     * Return attribute list for this element without commom attributes
      * 
-     * @return array<string> - Lista com os nomes dos atributos permitidos para o elemento
+     * @return array - Array of string wich attribute names valid for the element
      */
     protected abstract function getAttributeList();
     
-    /* Metodos base para o tratamento das tags */
+    /* Private and protected methods */
+    /**
+     * Insert the content(s) in specific position, when position is invalid adding on end list
+     * @param mixed $content Element/Elements to be add. HTML String or Tag element
+     * @param integer $index Order to be adding
+     * @return \Tag
+     */
+    protected function insertIn($content, $index) {
+        if ($index < 0 || $index > count($this->content)) {
+            $index = count($this->content);
+        }
+        $contents = $this->parseInternal($content);
+        foreach ($contents as $content) {
+            if ($content instanceof Tag) {
+                $content->setParent($this);
+            }
+            $this->content = array_merge(array_slice($this->content, 0, $index), array($content), array_slice($this->content, $index));
+            //$this->content[] = $content;
+        }
+        return $this;
+    }
+    
+    protected function indexOf($element) {
+        if ($this instanceof Tags)
+            return -1;
+        else
+            return array_search($element, $this->content);  
+    }
+    
+    /* Public methods based in jQuery */
+    /**
+     * Add elements to the set of matched elements
+     * @todo develop it
+     */
+    public function add() {
+       die('TODO');
+    }
     
     /**
-     * Adiciona classes ao elemento
-     * @param string $className Nome das classes separadas por espaço
+     * Adds the specified class(es) to each of the set of matched elements.
+     * @param mixed $classNameOrFunction 
+     *      string - One or more class names to be added to the class attribute of each matched element.
+     *      function(Tag, currentClass) - A function returning one or more space-separated class names to be added to the existing class name(s). 
+     *          Receives the element in the set and the existing class name(s) as arguments.
      * 
      * @return Tag - Referencia para o objeto
      */
-    public function addClass($className) {
+    public function addClass($classNameOrFunction) {
+        if (is_callable($classNameOrFunction))
+            $className = $classNameOrFunction($this, $this->attr('class'));
+        else
+            $className = $classNameOrFunction;
+        
         if (strlen($this->attr('class'))>0)
             $className = ' ' . $className;
-        $this->attr('class', preg_replace('!\s+!', ' ', $this->attr('class') . $className));
+        
+        $classes = explode(' ', preg_replace('!\s+!', ' ', $this->attr('class') . $className));
+        $this->attr('class', implode(array_unique($classes), ' '));
+        return $this;
+    }
+    
+    /**
+     * Insert content, specified by the parameter, after this element
+     * @param mixed $content Accept one or more additional content
+     *      HTML string, 
+     *      Tag or Tags object, 
+     *      function function(Tag) to insert after this element.
+     * 
+     * @return \Tag - The object referente
+     */
+    public function after() {
+        $father = $this->parent();
+        $index =  $father->indexOf($this)+1;
+        
+        $contents = func_get_args();
+        rsort($contents);
+        foreach ($contents as $content) {
+            $father->insertIn($content, $index);
+        }
         return $this;
     }
     
@@ -77,14 +141,7 @@ abstract class Tag {
      * @return Tag - Referencia para o elemento que acabou de adiconar um novo filho
      */
     public function append($content) {
-        $contents = $this->parseInternal($content);
-        foreach ($contents as $content) {
-            if ($content instanceof Tag) {
-                $content->setParent($this);
-            }
-            $this->content[] = $content;
-        }
-        return $this;
+        return $this->insertIn($content, count($this->content));
     }
     
     /**
@@ -335,8 +392,9 @@ abstract class Tag {
      * @return Tag|Tags - Referencia para o objeto
      */
     public function parent() {
-        if (empty($this->parent))
-            return new Tags();
+        if (empty($this->parent)) {
+            return new Tags(array($this));
+        }
         return $this->parent;
     }
     
@@ -347,14 +405,7 @@ abstract class Tag {
      * @return Tag - Referencia para o elemento que acabou de adiconar um novo filho
      */
     public function prepend($content) {
-        $contents = $this->parseInternal($content);
-        foreach ($contents as $content) {
-            if ($content instanceof Tag) {
-                $content->setParent($this);
-            }
-            array_unshift($this->content, $content);
-        }
-        return $this;
+        return $this->insertIn($content, 0);
     }
     
     /**
@@ -501,19 +552,21 @@ abstract class Tag {
      */
     public function toString() {
         $tagname = strtolower($this->getTagName());
-        $html = "<{$tagname}";
+        $html = '';
+        if ($tagname) {
+            $html = "<{$tagname}";
         
-        // Attributes
-        if (count($this->attributes)) {
-            $attrs = array();
-            foreach ($this->attributes as $name => $value) {
-                $attrs[] = $name . '="' . $this->attr($name) . '"';
+            // Attributes
+            if (count($this->attributes)) {
+                $attrs = array();
+                foreach ($this->attributes as $name => $value) {
+                    $attrs[] = $name . '="' . $this->attr($name) . '"';
+                }
+                $html .= ' ' . implode(' ', $attrs);
             }
-            $html .= ' ' . implode(' ', $attrs);
+
+            $html .= '>';
         }
-        
-        $html .= '>';
-        
         if ($this->hasEndtag()) {
             // Content
             foreach ($this->content as $content) {
@@ -524,7 +577,8 @@ abstract class Tag {
             }
             
             // EndTag
-            $html .= "</{$tagname}>";
+            if ($tagname)
+                $html .= "</{$tagname}>";
         }
 
         return $html;
@@ -634,7 +688,7 @@ abstract class Tag {
         else {
             $nodes = $node['childNodes'][0]['childNodes'];
         }
-        var_dump($tag);
+        
         $list = array();
         foreach ($nodes as $node) {
             $list[] = self::parseNode($node);
