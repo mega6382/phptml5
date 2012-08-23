@@ -93,15 +93,18 @@ class TagTest extends PHPUnit_Framework_TestCase {
         
         $html = '<div>'. $html .'</div>';
         $this->assertEquals($this->object, $this->object->after($p2)->after($p1));
-        $this->assertEquals('<div>' . $html . '<p>P1</p><p>P2</p></div>', $div->toString());
+        $html = '<div>' . $html . '<p>P1</p><p>P2</p></div>';
+        $this->assertEquals($html, $div->toString());
         
         // root element doesn't has parent / return just element
         $tags = $div->after('<a href="http://#">link</a>')->parent();
-        $this->assertTrue($tags instanceof Tags);
+        $this->assertTrue($tags instanceof EmptyTag);
+        $this->assertEquals( $html . '<a href="http://#">link</a>', $tags->toString());
     }
     
     /**
      * @covers Tag::append
+     * @covers Tag::appendTo
      * @covers Tag::size
      * @group phptml5
      */
@@ -128,6 +131,11 @@ class TagTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals(1, $p1->size());
         $this->assertEquals(2, $p2->size());
         $this->assertEquals('<div><p><span></span></p><p><span></span><a></a></p><p>Paragraph3</p></div>', $this->object->toString());
+        
+        $x = new GenericTag('div');
+        $x->html('<p class="parag">Este eh um paragrafo</p>');
+        $x->appendTo(new GenericTag('body'));
+        $this->assertEquals('<body><div><p class="parag">Este eh um paragrafo</p></div></body>', $x->parent()->toString());
     }
 
     /**
@@ -397,7 +405,8 @@ class TagTest extends PHPUnit_Framework_TestCase {
      */
     public function testRemove() {
         $this->object->id('div');
-        $this->assertTrue($this->object->parent() instanceof Tags);
+        $this->assertTrue($this->object->parent() instanceof EmptyTag);
+        $this->assertTrue($this->object->parent()->parent() instanceof Tags);
         $p = new GenericTag('p');
         $p->id('p');
         $div = new GenericTag('div');
@@ -413,7 +422,7 @@ class TagTest extends PHPUnit_Framework_TestCase {
             $this->assertEquals('<div id="'. $id .'">Result: <p id="p"><div id="div"></div></p></div>', $div->toString());
             $this->assertEquals('<div id="'. $id .'">Result: <p id="p"></p></div>', $p->remove($this->object)->parent()->toString());
 
-            $this->assertTrue($this->object->parent() instanceof Tags);
+            $this->assertTrue($this->object->parent() instanceof EmptyTag);
             $div->prepend($this->object);
 
             $this->assertEquals($div, $this->object->parent());
