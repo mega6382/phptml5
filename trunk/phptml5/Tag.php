@@ -52,7 +52,7 @@ abstract class Tag {
      */
     protected abstract function getAttributeList();
     
-    /* Private and protected methods */
+    /* Protected methods */
     /**
      * Insert the content(s) in specific position, when position is invalid adding on end list
      * @param mixed $content Element/Elements to be add. HTML String or Tag element
@@ -64,30 +64,193 @@ abstract class Tag {
             $index = count($this->content);
         }
         $contents = $this->parseInternal($content);
+        $list = array();
         foreach ($contents as $content) {
             if ($content instanceof Tag) {
                 $content->setParent($this);
             }
-            $this->content = array_merge(array_slice($this->content, 0, $index), array($content), array_slice($this->content, $index));
-            //$this->content[] = $content;
+            $list[] = $content;
         }
+        $this->content = array_merge(array_slice($this->content, 0, $index), $list, array_slice($this->content, $index));
         return $this;
     }
+       
+    /**
+     * Clean text without html tags, extra spaces and escape special characters
+     * @param string $text Text to be converted
+     * 
+     * @return string New text
+     */
+    protected function cleanText($text) {
+        return trim(htmlspecialchars(strip_tags($text))); 
+    }
     
-    protected function indexOf($element) {
-        if ($this instanceof Tags)
-            return -1;
+    /**
+     * Clean text without html tags, extra spaces, escape special characters and convert to lowercase
+     * @param string $text Text to be converted
+     * 
+     * @return string New text
+     */
+    protected function cleanAttr($text) {
+        return preg_replace("/&#?[a-z0-9]{2,8};/i","",strtolower($this->cleanText($text)));
+    }
+    
+    /**
+     * Parse elements when necessary. If text hasn't html mackup nothing is done
+     * @param mixed $content 
+     *      String HTML
+     *      Tag or Tags element
+     *      function(Tag)
+     *      Simple text
+     * 
+     * @return array List of string and/or Tag
+     */
+    protected function parseInternal($content) {
+        if (is_callable($content))
+            $content = $this->parseInternal($content($this));
+        
+        if ($content instanceof Tag) {
+            if ($content instanceof EmptyTag) return $content->content;
+            else return array($content);
+        }
+        else if($content instanceof Tags)
+            return $content->toArray();
+        
+        if (strlen($content) == strlen(strip_tags($content)))
+            return array($content);
         else
-            return array_search($element, $this->content);  
+            return self::parse($content);
+    }
+
+    /**
+     * Set the parent to element
+     * If element alread has parent, it will be changed
+     * 
+     * @param \Tag $parent New Parent
+     * @return \Tag
+     */
+    protected function setParent(Tag $parent) {
+        if ($parent == null) {
+            $this->parent = null;
+        }
+        else {
+            if (!is_null($this->parent))
+                $this->parent->remove($this);
+            if($parent->parent() == $this)
+                $this->remove($parent);
+            $this->parent = $parent;
+        }
+    }
+    
+    /* Static methods */
+    /**
+     * Convert html string in element list
+     * @param string $html Content html to be parsed
+     * 
+     * @return array List of Tag
+     */
+    public static function parse($html) {
+        $doc = new HTMLParser();
+        $doc->strictErrorChecking = false;
+        $doc->loadHTML($html);   
+        $node = $doc->toArray();
+        
+        //Search for first tag
+        $tag = '';
+        $caracs = array(' ','<','>');
+        $open = false;
+        for($i=0; $i < strlen($html); $i++) {
+            $c = $html[$i];
+            if (in_array($c, $caracs) && $open) break;
+            if (in_array($c, $caracs)) continue;
+            $tag .= $c;
+            $open = true;
+        }
+        $tag = strtolower($tag);
+        $nodes = array();
+        if ($tag == 'html') {
+            $nodes[] = $node;
+        }
+        else if ($tag == 'body' || $tag == 'head') {
+            $nodes = $node['childNodes'];
+        }
+        else {
+            $nodes = $node['childNodes'][0]['childNodes'];
+        }
+        
+        $list = array();
+        foreach ($nodes as $node) {
+            $list[] = self::parseNode($node);
+        }
+        
+        return $list;
+    }
+    
+    /**
+     * Recursive function used in parser
+     * @param array $node Array used in HtmlParser::toArray
+     * @return \Tag
+     */
+    protected static function parseNode($node) {
+        // Create obj
+        $tagName = ucfirst($node['tag']);
+        if (class_exists($tagName)) {
+            $obj = new $tagName();
+        }
+        else {
+            $obj = new GenericTag($tagName);
+        }
+
+        // Set Attributes
+        if (count($node['attributes'])) {
+            $obj->attr($node['attributes']);
+        }
+
+        // Parse Content
+        foreach($node['childNodes'] as $content) {
+            if (is_string($content)) {
+                $obj->append(strip_tags($content));
+            }
+            else {
+                $obj->append(self::parseNode($content));
+            }
+        }
+        
+        return $obj;
+    }
+    
+    /* Magic Methods */    
+    /**
+     *  Create a deep copy of the set of matched elements.
+     */
+    public function __clone() {
+        $this->parent = null;
+        $contents = $this->content;
+        $this->content = array();
+        foreach ($contents as $content) {
+            if ($content instanceof Tag)
+                $this->append(clone $content);     
+            else
+                $this->append ($content);
+        }
+    }
+    
+    /**
+     * @see Tag::toString
+     * @return string
+     */
+    public function __toString() {
+        return $this->toString();
     }
     
     /* Public methods based in jQuery */
     /**
      * Add elements to the set of matched elements
-     * @todo develop it
+     * Same as append
+     * @see Tag::append
      */
-    public function add() {
-       die('TODO');
+    public function add($content) {
+       $this->append($content);
     }
     
     /**
@@ -97,7 +260,7 @@ abstract class Tag {
      *      function(Tag, currentClass) - A function returning one or more space-separated class names to be added to the existing class name(s). 
      *          Receives the element in the set and the existing class name(s) as arguments.
      * 
-     * @return Tag - Referencia para o objeto
+     * @return Tag - The object reference
      */
     public function addClass($classNameOrFunction) {
         if (is_callable($classNameOrFunction))
@@ -119,15 +282,18 @@ abstract class Tag {
      *      HTML string, 
      *      Tag or Tags object, 
      *      function function(Tag) to insert after this element.
+     *      Array of all types
      * 
-     * @return \Tag - The object referente
+     * @return \Tag - The object reference
      */
-    public function after() {
-        $father = $this->parent();
-        $index =  $father->indexOf($this)+1;
+    public function after($contents=array()) {
+        $index =  $this->index()+1;
         
-        $contents = func_get_args();
+        if (!is_array($contents) || !count($contents)) 
+            $contents = func_get_args();
         rsort($contents);
+        
+        $father = $this->parent();
         foreach ($contents as $content) {
             $father->insertIn($content, $index);
         }
@@ -135,23 +301,51 @@ abstract class Tag {
     }
     
     /**
-     * Adiciona conteudo de texto (html) ou novos objetos Tag ao final do elemento
-     * @param string|Tag $content Quando string será convertido para Tag
-     * 
-     * @return Tag - Referencia para o elemento que acabou de adiconar um novo filho
+     * Just return an instance of this
      */
-    public function append($content) {
-        return $this->insertIn($content, count($this->content));
+    public function andSelf() {
+        return $this;
     }
     
     /**
-     * Método sobrecarregado de GET ou SET para atributos, 
-     *    SET - Parâmetro $nameOrList um vetor associativo ou parâmetro $value uma string
-     *    GET - Parâmetro $value ausente e parâmetro $nameOrList deve ser uma string
-     * @param string|array<string> $nameOrList Nome do atributo ou vetor associativo dos nomes com o respecitvo valor
-     * @param string $value Valor do atributo
+     * Insert content, specified by the parameter, to the end in the set of contents.
+     * @param mixed $content Accept one or more additional content
+     *      HTML string, 
+     *      Tag or Tags object, 
+     *      function function(Tag) to append in this element.
+     *      Array of all types
      * 
-     * @return string|Tag Retorna o valor do atributo (get) ou a instancia da classe (set)
+     * @return \Tag - The object reference
+     */
+    public function append($contents=array()) {
+        if (!is_array($contents) || !count($contents)) 
+            $contents = func_get_args();
+        foreach ($contents as $content) {
+            $this->insertIn($content, count($this->content));
+        }
+        return $this;
+    }
+    
+    /**
+     * Insert every element in the set of matched elements to the end of the target.
+     * @param mixed $target Tag or Tags object,
+     * 
+     * @return \Tag - The object reference
+     */
+    public function appendTo($target) {
+        $target->append($this);
+    }
+    
+    /**
+     * Get the value of an attribute for the first element in the set of matched elements.
+     * Set one or more attributes for the set of matched elements 
+     * @param mixed $nameOrList 
+     *      array associative with attribute names and values,
+     *      string Name or attribute,
+     *      function(Tag, nameattr) - A function returning one string value to be added to the existing attr
+     * @param string $value atribute value
+     * 
+     * @return mixed In set return a \Tag object reference, in get return string value of atribute
      */
     public function attr($nameOrList, $value=null) {
         if (is_null($value) && is_string($nameOrList)) {
@@ -164,6 +358,9 @@ abstract class Tag {
         else {
             // Metodo Set
             if (is_string($nameOrList)) {
+                if (is_callable($value)) {
+                    $value = $value($this, $nameOrList);
+                }
                 $nameOrList = array($nameOrList => $value);
             }
             foreach ($nameOrList as $attr => $val) {
@@ -174,52 +371,114 @@ abstract class Tag {
     }
     
     /**
-     * Retorna uma lista (Tags) dos elementos filhos do elemento
+     * Insert content, specified by the parameter, before each element in the set of matched elements.
+     * @param mixed $content Accept one or more additional content
+     *      HTML string, 
+     *      Tag or Tags object, 
+     *      function function(Tag) to insert after this element.
+     *      Array of all types
      * 
-     * @return Tags Lista com os filhos
+     * @return \Tag - The object reference
      */
-    public function children() {
+    public function before($contents=array()) {
+        $father = $this->parent();
+        $index =  $father->index($this);
+        
+        if (!is_array($contents) || !count($contents)) 
+            $contents = func_get_args();
+        rsort($contents);
+        foreach ($contents as $content) {
+            $father->insertIn($content, $index);
+        }
+        return $this;
+    }
+    
+    /**
+     * Get the children of each element in the set of matched elements, optionally filtered by a selector.
+     * 
+     * @return Tags List of children
+     * @toto implements selector
+     */
+    public function children($selector=null) {
         $list = array();
         foreach ($this->content as $content) {
             if ($content instanceof Tag)
                 $list[] = $content;
         }
-        return new Tags($list);
+        return new Tags(Selector::run($list, $selector, array('deep'=>false)), $this);
     }
     
     /**
-     * Metodo para clonar os objetos
+     * Create a deep copy of the set of matched elements.
+     * @param boolean $withAttr=true A Boolean indicating whether attributes should be copied along with the elements.
+     * @param boolean $withContent=true A Boolean indicating whether data content should be copied along with the elements.
      * 
-     * @return Tag Novo elemento clonado
+     * @return \Tag The new object reference
      */
-    public function cloneThis() {
-        return clone $this;
+    public function cloneThis($withAttr=true, $withContent=true) {
+        $obj = clone $this;
+        if (!$withAttr)
+            $obj->emptyAttr(true);
+        if (!$withContent)
+            $obj->emptyContent();
+        return $obj;
     }
     
     /**
-     * Metodo mágico utilizado para clonar objetos
+     * Get the first element that matches the selector, beginning at the current element and progressing up through the DOM tree.
+     *      Begins with the current element, 
+     *      Travels up the DOM tree until it finds a match for the supplied selector, 
+     *      The returned jQuery object contains zero or one element
+     * @param string $selector
+     * 
+     * @return mixed \Tag or \Tags
      */
-    public function __clone() {
-        $this->parent = null;
-        $contents = $this->content;
-        $this->content = array();
-        foreach ($contents as $content) {
-            if ($content instanceof Tag)
-                $this->append(clone $content);     
-            else
-                $this->append ($content);
+    public function closest($selector=null) {
+        $data = Selector::run(array($this), $selector, array('max'=>1, 'dir'=>'up'));
+        if (empty($data))
+            return new Tags($this);
+        else
+            return $data[0];
+    }
+    
+    /**
+     * Check to see if a Tag is within this element.
+     * Text are too supported.
+     * @param Tag $contained The Tag element that may be contained by the other element.
+     * 
+     * @return boolean true if contains and false otherwise
+     */
+    public function contains(Tag $contained) {
+        $ret = in_array($contained, $this->content);
+        if (!$ret) {
+            foreach ($this->content as $obj) {
+                if ($obj instanceof Tag) {
+                    $ret = $ret || $obj->contains($contained);
+                    if ($ret) break;
+                }
+            }
         }
+        return $ret;
     }
     
     /**
-     * Método sobrecarregado de GET ou SET para o css 
-     *    SET - Parâmetro $styleOrList um vetor associativo ou parâmetro $value uma string
-     *    GET - Parâmetro $value ausente e parâmetro $styleOrList deve ser uma string
-     * @param string|array<string> $styleOrList Nome do estilo ou vetor associativo dos nomes com o respecitvo valor
-     * @param string $value Valor do estilo
+     * Get the children of each element in the set of matched elements, including text
+     * @return array List of contents, includes Tag and string
+     */
+    public function contents() {
+        return $this->content;
+    }
+    
+    /**
+     * Get the value of a style property for the first element in the set of matched elements.
+     * Set one or more CSS properties for the set of matched elements.
+     * @param mixed $styleOrList A CSS property name. A map of property-value pairs to set.
+     * @param string $value 
+     *      A value to set for the property,
+     *      function(Tag, namestyle) - A function returning the value to set.
      * 
-     * @return string|Tag Retorna o valor do estilo (get) ou a instancia da classe (set)
-     * @todo Pensar o que fazer com estilos como url('location') ?
+     * @return mixed In set return a \Tag object reference, in get return string value of style
+     * @todo What to do with url('location') because the quot?
      */
     public function css($styleOrList, $value=null) {
         if (is_null($value) && is_string($styleOrList)) {
@@ -237,6 +496,9 @@ abstract class Tag {
         else {
             // Metodo Set
             if (is_string($styleOrList)) {
+                if (is_callable($value)) {
+                    $value = $value($this, $styleOrList);
+                }
                 $styleOrList = array($styleOrList => $value);
             }
             
@@ -276,13 +538,16 @@ abstract class Tag {
     }
     
     /**
-     * Método sobrecarregado de GET ou SET para dados do atributos, 
-     *    SET - Parâmetro $nameOrList um vetor associativo ou parâmetro $value uma string
-     *    GET - Parâmetro $value ausente e parâmetro $nameOrList deve ser uma string
-     * @param string|array<string> $nameOrList Nome do atributo ou vetor associativo dos nomes com o respecitvo valor
-     * @param string $value Valor do atributo
+     * Store arbitrary data associated with the matched elements.
+     * Returns value at named data store for the first element in the jQuery collection, as set by data(name, value).
+     * @param mixed $nameOrList 
+     *      A string naming the piece of data to set. Name of the data stored.
+     *      An object of key-value pairs of data to update.
+     * @param mixed $value
+     *      The new data value; it can be any Javascript type including Array or Object.
+     *      function(Tag, namedata) - A function returning the value to set.
      * 
-     * @return string|Tag Retorna o valor do atributo associado (get) ou a instancia da classe (set)
+     * @return mixed In set return a \Tag object reference, in get return string data value
      */
     public function data($nameOrList, $value=null) {
         if (is_null($value) && is_string($nameOrList)) {
@@ -292,6 +557,9 @@ abstract class Tag {
         else {
             // Metodo Set
             if (is_string($nameOrList)) {
+                if (is_callable($value)) {
+                    $value = $value($this, $nameOrList);
+                }
                 $nameOrList = array($nameOrList => $value);
             }
             foreach ($nameOrList as $attr => $val) {
@@ -302,9 +570,52 @@ abstract class Tag {
     }
     
     /**
-     * Zera todo o conteudo do elemento
+     * Iterate over a Tag object, executing a function for each content.
+     * @param string $function Function name that receive function(index, Element)
+     * @param boolean $onlyTag Determine if iterable with only Element or accept all content
      * 
-     * @return Tag Referencia para o elemento
+     * @return \Tag The object reference
+     */
+    public function each($function, $onlyTag=false) {
+        if (is_callable($function)) {
+            foreach ($this->content as $i => $content) {
+                if ($onlyTag && is_string($content)) continue;
+                if ($function($i, $content) === false) break;
+            }
+        }
+        return $this;
+    }
+    
+    /**
+     * Remove all child nodes and all attributes
+     * 
+     * @return Tag The object reference
+     */
+    public function emptyAll() {
+        return $this->emptyContent()->emptyAttr();
+    }
+    
+    /**
+     * Remove all attributes
+     * @param boolean $recursive Determine if clean attributes recursive. The Default is false
+     * 
+     * @return Tag The object reference
+     */
+    public function emptyAttr($recursive=false) {
+        $this->attributes = array();
+        if ($recursive) {
+            foreach ($this->content as $content) {
+                if ($content instanceof Tag)
+                    $content->emptyAttr(true);
+            }
+        }
+        return $this;
+    }
+    
+    /**
+     * Remove all child nodes
+     * 
+     * @return \Tag The object reference
      */
     public function emptyContent() {
         $this->content = array();
@@ -312,29 +623,82 @@ abstract class Tag {
     }
     
     /**
-     * Zera todos os atributos do elemento
+     * Reduce the set of matched elements to the one at the specified index
+     * @param int $index 
+     *      An integer indicating the 0-based position of the element,
+     *      An integer indicating the position of the element, counting backwards from the last element in the set.
      * 
-     * @return Tag Referencia para o elemento
+     * @return mixed \Tag or empty \Tags when not found index
      */
-    public function emptyAttr() {
-        $this->attributes = array();
+    public function eq($index) {
+        return $this->children()->eq($index);
+    }
+    
+    /**
+     * Reduce the content to those that match the selector or pass the function's test.
+     * @param mixed $selectorOrFunction
+     *      A string containing a selector expression to match the current set of elements against,
+     *      function(content)A function used as a test for each element in the set.
+     * 
+     * @return \Tag
+     */
+    public function filter($selectorOrFunction) {
+        $this->content = $this->children()->filter($selectorOrFunction)->toArray();
         return $this;
     }
     
     /**
-     * Zera todos os atributos e conteudo
-     * 
-     * @return Tag Referencia para o elemento
+     * Get the descendants of each element in the current set of matched elements, filtered by a selector
+     * @param string $selector A string containing a selector expression to match elements against.
+     * @return \Tags
      */
-    public function emptyAll() {
-        return $this->emptyContent()->emptyAttr();
+    public function find($selector) {
+        return new Tags(Selector::run($this, $selector), $this);
     }
     
     /**
-     * Verifica se uma ou mais classes estão presentes no elemento
-     * @param string $classes Nome de uma ou mais classes (separadas por espaços)
+     * Reduce the set of matched elements to the first in the set.
      * 
-     * @return boolean TRUE se a classe ou todas as classes estão presentes
+     * @return mixed \Tag or empty \Tags when not found index
+     */
+    public function first() {
+        return $this->eq(0);
+    }
+    
+    /**
+     * Reduce the content to those that have a descendant that matches the selector or Tag.
+     * @param mixed $selectorOrTag
+     *      A string containing a selector expression to match elements against.
+     *      A Tag element to match elements against.
+     * 
+     * @return \Tag
+     */
+    public function has($selectorOrTag) {
+        $list = array();
+        if ($selectorOrTag instanceof Tag) {
+            foreach ($this->content as $content) {
+                if ($content instanceof Tag) {
+                    if ($content->contains($selectorOrTag) || $content == $selectorOrTag)
+                        $list[] = $content;
+                }
+            }
+        }
+        else {
+            foreach ($this->content as $content) {
+                if ($content instanceof Tag) {
+                    if (count(Selector::run($content, $selectorOrTag)))
+                        $list[] = $content;
+                }
+            }
+        }
+        return $this;
+    }
+    
+    /**
+     * Determine whether any of the matched elements are assigned the given class.
+     * @param string $classes The class name to search for or The classes names with space between them
+     * 
+     * @return boolean Return true if the class is assigned to element, false otherwise
      */
     public function hasClass($classes) {
         $allClass = $this->attr('class');
@@ -347,12 +711,14 @@ abstract class Tag {
     }
     
     /**
-     * Método sobrecarregado de GET ou SET para definir o conteudo do elemento 
-     *    SET - Parâmetro $content diferente de null
-     *    GET - Parâmetro $content igual a null
-     * @param string|Tag $content Conteudo HTML ou Element Tag para substituir o conteudo atual
+     * Get the HTML contents of the Tag element in the set of matched elements.
+     * Set the HTML contents of each element in the set of matched elements.
+     * @param mixed $content
+     *      A string of HTML to set as the content of each matched element.
+     *      function(Tag) A function returning the HTML content to set.
+     *      Tag or Tags objetct
      * 
-     * @return Tag|string Referencia para o elemento (set) ou texto html do conteudo do elemento (get)
+     * @return mixed In set return a \Tag object reference, in get return string value of atribute
      */
     public function html($content=null) {
         if (is_null($content)) {
@@ -376,15 +742,82 @@ abstract class Tag {
     }
     
     /**
-     * Método sobrecarregado de GET ou SET para definir o attributo id para o elemento
-     *    SET - Parâmetro $idValue diferente de null
-     *    GET - Parâmetro $idValue igual a null
-     * @param string $value Valor do id
+     * Get the id attribute of the Tag element.
+     * Set the id attribute of the Tag element.
+     * @param string $value id Value
      * 
-     * @return Tag|string Referencia para o elemento (set) ou id do elemento (get)
+     * @return mixed In set return a \Tag object reference, in get return string value of atribute
      */
     public function id($idValue=null) {
         return $this->attr('id', $idValue);
+    }
+    
+    /**
+     * Return the numeric position (index) of $element in contents
+     * If no argument is passed to the .index() method, the return value is an integer 
+     * indicating the position of the first element within the jQuery object relative to its sibling elements.
+     * 
+     * @param mixed $selectorOrTag a Tag element or a selector 
+     * @return int The index of element or -1 when not found
+     */
+    public function index($selectorOrTag=null) {
+        if (is_null($selectorOrTag)) {
+            return $this->parent()->index($this);
+        }
+        else {
+            if (is_string($selectorOrTag)) {
+                $list = Selector::run($this->children(), $selectorOrTag, array('deep'=>false, 'max'=>1));
+                if (count($list))
+                    $selectorOrTag = $list[0];
+                else
+                    return -1;
+            }
+            $ret = array_search($selectorOrTag, $this->content);  
+            if ($ret === false)
+                return -1;
+            return $ret;
+        }
+    }
+    
+    /**
+     * Insert every element in the set of matched elements after the target.
+     * @param Tag $target Tag element container
+     * 
+     * @return \Tag
+     */
+    public function insertAfter(Tag $target) {
+        $target->after($this);
+        return $this;
+    }
+    
+    /**
+     * Insert every element in the set of matched elements before the target.
+     * @param Tag $target Tag element container
+     * 
+     * @return \Tag
+     */
+    public function insertBefore(Tag $target) {
+        $target->before($this);
+        return $this;
+    }
+    
+    /**
+     * Check the current matched set of elements against a selector, Tag element or function
+     * and return true if at least one of these elements matches the given arguments.
+     * @param mixed $selectorOrOther
+     *      selector - A string containing a selector expression to match elements against.
+     *      function(Tag) - A function used as a test for the set of elements. 
+     *      element - An Tag element to match the current set of elements against.
+     * 
+     * @return boolean
+     */
+    public function is($selectorOrOther) {
+        if ($selectorOrOther instanceof Tag)
+            return $this == $selectorOrOther;
+        else if (is_callable($selectorOrOther))
+            return $selectorOrOther($this);
+        else
+            return (bool)count(Selector::run($this, $selectorOrOther, array('deep'=>false)));
     }
     
     /**
@@ -393,7 +826,12 @@ abstract class Tag {
      */
     public function parent() {
         if (empty($this->parent)) {
-            return new Tags(array($this));
+            if ($this instanceof EmptyTag)
+                return new Tags($this);
+            else {
+                $obj = new EmptyTag();
+                $obj->insertIn($this, 0);
+            }
         }
         return $this->parent;
     }
@@ -584,149 +1022,5 @@ abstract class Tag {
         return $html;
     }
     
-    /**
-     * @see Tag::toString
-     * @return string
-     */
-    public function __toString() {
-        return $this->toString();
-    }
-    
     // val
-    
-    /* Metodos utilitarios */
-    /**
-     * Limpa um texto retornando sem tags html e sem espaços adicionais e transformando caracteres especiais em marcação html
-     * 
-     * @param string $text
-     */
-    protected function cleanText($text) {
-        return trim(htmlspecialchars(strip_tags($text))); 
-    }
-    
-    /**
-     * Limpa um texto retornando sem caracteres especiais, tags html, sem espaços adicionais e minusculo 
-     * @param string $text
-     * 
-     * @return string Novo texto para utilizar nos atributos e seus valores
-     */
-    protected function cleanAttr($text) {
-        return preg_replace("/&#?[a-z0-9]{2,8};/i","",strtolower($this->cleanText($text)));
-    }
-    
-    /**
-     * Faz o parse do elemento se necessário, quando o texto não possui tags html nada é feito
-     * @param Tag|string $content Conteudo que sera analisado e parseado se necessário
-     * @return array<string|Tag> Lista de strings e Tags que formam o conteudo do elemento
-     * 
-     * @todo Considerar alterar o retorno para Tags
-     */
-    private function parseInternal($content) {
-        if ($content instanceof Tag) return array($content);
-        if (strlen($content) == strlen(strip_tags($content)))
-            return array($content);
-        else {
-            return self::parse($content);
-        }
-    }
-
-    /**
-     * Adiciona um pai para o elemento.
-     * Cuidado ao utilizar este metodo pois ele não deveria estar sendo utilizado
-     * Se o objeto já possui um pai, ele será removido
-     * 
-     * @param Tag $parent Pai do elemento
-     * @return Tag
-     */
-    protected function setParent($parent) {
-        if ($parent == null) {
-            $this->parent = null;
-        }
-        else {
-            if (!is_null($this->parent))
-                $this->parent->remove($this);
-            if($parent->parent() == $this)
-                $this->remove($parent);
-            $this->parent = $parent;
-        }
-    }
-    
-    /* Metodos estaticos base */
-    
-    /**
-     * Transforma texto html em elementos Tags
-     * @param string $html Conteudo HTML que deverá ser parseado
-     * @return array<Tag> Retorna um vetor com as tags que estão na raiz
-     * 
-     * @todo Convert return type (from  array to Tags)
-     */
-    public static function parse($html) {
-        $doc = new HTMLParser();
-        $doc->strictErrorChecking = false;
-        $doc->loadHTML($html);   
-        $node = $doc->toArray();
-        
-        //Search for first tag
-        $tag = '';
-        $caracs = array(' ','<','>');
-        $open = false;
-        for($i=0; $i < strlen($html); $i++) {
-            $c = $html[$i];
-            if (in_array($c, $caracs) && $open) break;
-            if (in_array($c, $caracs)) continue;
-            $tag .= $c;
-            $open = true;
-        }
-        $tag = strtolower($tag);
-        $nodes = array();
-        if ($tag == 'html') {
-            $nodes[] = $node;
-        }
-        else if ($tag == 'body' || $tag == 'head') {
-            $nodes = $node['childNodes'];
-        }
-        else {
-            $nodes = $node['childNodes'][0]['childNodes'];
-        }
-        
-        $list = array();
-        foreach ($nodes as $node) {
-            $list[] = self::parseNode($node);
-        }
-        
-        return $list;
-    }
-    
-    /**
-     * Recebe um node e realiza o parser (função recursiva)
-     * @param array $node Formato especifico retornado pele metodo HtmlParser::toArray
-     * @return \Tag
-     */
-    private static function parseNode($node) {
-        // Create obj
-        $tagName = ucfirst($node['tag']);
-        if (class_exists($tagName)) {
-            $obj = new $tagName();
-        }
-        else {
-            $obj = new GenericTag($tagName);
-        }
-
-        // Set Attributes
-        if (count($node['attributes'])) {
-            $obj->attr($node['attributes']);
-        }
-
-        // Parse Content
-        foreach($node['childNodes'] as $content) {
-            if (is_string($content)) {
-                $obj->append(strip_tags($content));
-            }
-            else {
-                $obj->append(self::parseNode($content));
-            }
-        }
-        
-        return $obj;
-    }
 }
