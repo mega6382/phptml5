@@ -136,7 +136,6 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         return $this;
     }
     
-    
     /**
      * @see \Tag::append
      */
@@ -417,7 +416,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
                 return '';
         }
         // SET
-        foreach ($this->elements as $i => $elem) $elem->html($value . '_' . $value);
+        foreach ($this->elements as $i => $elem) $elem->id($value . '_' . $i);
         return $this;
     }
     
@@ -464,10 +463,303 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         return false;
     }
     
+    /**
+     * @see \Tag::last
+     */
+    public function last() {
+        return $this->eq($this->length());
+    }
+    
+    /**
+     * @see \Tag::last
+     */
+    public function length() {
+        return count($this->elements);
+    }
+    
+    /**
+     * @see \Tag::next
+     */
+    public function next($selector=null) {
+        if (is_null($selector)) {
+            return $this->eq($this->current + 1);
+        }
+        else if ($selector instanceof Tag) {
+            if (in_array($selector, $this->elements))
+                return $selector->next();
+            return new Tags(array(), $this);
+        }
+        else {
+            $ret = Selector::run(array_slice($this->elements, $this->current+1), $selector, array('deep'=>false, 'max'=>1));
+            if (count($ret))
+                return $ret[0];
+            else
+                return new Tags(array(), $this);
+        }
+    }
+    
+    /**
+     * @see \Tag::nextAll
+     */
+    public function nextAll($selector=null) {
+         return $this->nextUntil(null, $selector);
+    }
+    
+    /**
+     * @see \Tag::nextUntil
+     */
+    public function nextUntil($elementOrSelector, $filter=null) {
+        if (empty($elementOrSelector))
+            $end = count($this->elements) - ($this->current+1);
+        else if($elementOrSelector instanceof Tag)
+            $end = $elementOrSelector->index() - $start;
+        else if(is_string($elementOrSelector))
+            return $this->nextUntil($this->next($elementOrSelector), $filter);
+        else
+            $end = 0;
+        if (is_null($filter)) {
+            return new Tags(array_slice($this->elements, $this->current+1, $end), $this);
+        }
+        else if ($filter instanceof Tag) {
+            if (in_array($filter, $this->elements))
+                return $filter->nextUntil($elementOrSelector);
+            return new Tags(array(), $this);
+        }
+        else {
+            $list = Selector::run(array_slice($this->elements, $this->current+1, $end), $selector, array('deep'=>false));
+            return new Tags($list, $this);
+        }
+    }
+    
+    /**
+     * @see \Tag::not
+     */
+    public function not($selectOrElement) {
+        if ($selectOrElement instanceof Tag)
+            $filter = array($selectOrElement);
+        else if($selectOrElement instanceof Tags)
+            $filter = $selectOrElement->toArray();
+        else if (is_callable($selectOrElement)) {
+            $filter = array();
+            foreach ($this->elements as $content) {
+                if ($selectOrElement($content)) $filter[] = $content;
+            }
+        }
+        else if (is_string($selectOrElement))
+            $filter = Selector::run($this->elements, $selectOrElement, array('deep'=>false));
+        else if (is_array($selectOrElement))
+            $filter = $selectOrElement;
+        else
+            $filter = array();
+        
+        $this->elements = array_diff($this->elements, $filter);
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::parent
+     */
+    public function parent($selector=null) {
+        $list = array();
+        foreach ($this->elements as $ele) {
+            $ret = $ele->parent($selector);
+            if ($ret instanceof Tag)
+                $list[] = $ret;
+        }
+        return new Tags($list, $this);
+    }
+    
+    /**
+     * @see \Tag::parents
+     */
+    public function parents($selector=null) {
+        return $this->parentsUntil(null, $selector);
+    }
+    
+    /**
+     * @see \Tag::parentsUntil
+     */
+    public function parentsUntil($elementOrSelector, $filter=null) {
+        if (is_string($elementOrSelector)) {
+            $list = Selector::run($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
+            if (count($list))
+                $element = $list[0];
+            else
+                $element = null;
+        }
+        else $element = $elementOrSelector;
+        
+        if (empty($filter))
+            $filter = "*";
+        return new Tags(Selector::run($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
+    }
+    
+    /**
+     * @see \Tag::prepend
+     */
+    public function prepend($contents=null) {
+        if (!is_array($contents) || !count($contents))
+            $contents = func_get_args();
+        foreach ($this->elements as $elem) { $elem->prepend($contents); }
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::prependTo
+     */
+    public function prependTo($target) {
+        foreach ($this->elements as $elem) { $target->prependTo($elem); }
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::prev
+     */
+    public function prev($selector=null) {
+        if (is_null($selector)) {
+            return $this->eq($this->current - 1);
+        }
+        else if ($selector instanceof Tag) {
+            if (in_array($selector, $this->elements))
+                return $selector->prev();
+            return new Tags(array(), $this);
+        }
+        else {
+            $ret = Selector::run(array_slice($this->elements, 0, $this->current), $selector, array('deep'=>false, 'max'=>1));
+            if (count($ret))
+                return $ret[0];
+            else
+                return new Tags(array(), $this);
+        }
+    }
+    
+    /**
+     * @see \Tag::prevAll
+     */
+    public function prevAll($selector=null) {
+         return $this->prevUntil(null, $selector);
+    }
+    
+    /**
+     * @see \Tag::prevUntil
+     */
+    public function prevUntil($elementOrSelector, $filter=null) {
+        if (empty($elementOrSelector))
+            $end = $this->current;
+        else if($elementOrSelector instanceof Tag)
+            $end = $elementOrSelector->index();
+        else if(is_string($elementOrSelector))
+            return $this->prevUntil($this->prev($elementOrSelector), $filter);
+        else
+            $end = 0;
+        if (is_null($filter)) {
+            return new Tags(array_slice($this->elements, 0, $end), $this);
+        }
+        else if ($filter instanceof Tag) {
+            if (in_array($filter, $this->elements))
+                return $filter->prevUntil($elementOrSelector);
+            return new Tags(array(), $this);
+        }
+        else {
+            $list = Selector::run(array_slice($this->elements, 0, $end), $selector, array('deep'=>false));
+            return new Tags($list, $this);
+        }
+    }
+    
+    /**
+     * @see \Tag::prop
+     */
+    public function prop($propName, $value=null) {
+        //GET
+        if (is_string($propName) && is_null($value)) {
+            if (count($this->elements))
+                return $this->elements[0]->prop($propName);
+            else
+                return false;
+        }
+        // SET
+        foreach ($this->elements as $elem) $elem->prop($propName, $value);
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::remove
+     */
+    public function remove($contentOrSelector) {
+        foreach ($this->elements as $elem) $elem->remove($contentOrSelector);
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::removeAttr
+     */
+    public function removeAttr($attrName) {
+        foreach ($this->elements as $elem) $elem->removeAttr($attrName);
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::removeClass
+     */
+    public function removeClass($classOrFunction) {
+        foreach ($this->elements as $elem) $elem->removeAttr($classOrFunction);
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::removeData
+     */
+    public function removeData($dataName) {
+        foreach ($this->elements as $elem) $elem->removeData($dataName);
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::removeProp
+     */
+    public function removeProp($propName) {
+        foreach ($this->elements as $elem) $elem->removeProp($propName);
+        return $this;
+    }
+        
+    /**
+     * @see \Tag::siblings
+     */
+    public function siblings($selector=null) {
+        $newTags = new Tags(array(), $this);
+        foreach ($this->elements as $elem) { $newTags->merge($elem->siblings($selector)); }
+        return $newTags;
+    }
+    
+    /**
+     * Same as length
+     */
     public function size() {
-        return count($this);
+        return $this->length();
     }
 
+    /**
+     * @see \Tag::text
+     */
+    public function text($content=null) {
+        //GET
+        if (is_null($content)) {
+            if(count($this->elements))
+                return $this->elements[0]->text();
+            else
+                return '';
+        }
+        // SET
+        foreach ($this->elements as $elem) $elem->text($content);
+        return $this;
+    }
+    
+    /**
+     * @see \Tag::toArray
+     */
+    public function toArray() {
+        return $this->elements;
+    }
     
     public function toString() {
         $html = '';
@@ -476,7 +768,19 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         return $html;
     }
     
-    public function toArray() {
-        return $this->elements;
+    /**
+     * @see \Tag::val
+     */
+    public function val($value=null) {
+        //GET
+        if (is_null($value)) {
+            if(count($this->elements))
+                return $this->elements[0]->val();
+            else
+                return null;
+        }
+        // SET
+        foreach ($this->elements as $elem) $elem->val($value);
+        return $this;
     }
 }
