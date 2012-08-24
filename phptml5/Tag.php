@@ -129,7 +129,7 @@ abstract class Tag {
      * @param \Tag $parent New Parent
      * @return \Tag
      */
-    protected function setParent(Tag $parent) {
+    protected function setParent($parent) {
         if ($parent == null) {
             $this->parent = null;
         }
@@ -320,6 +320,7 @@ abstract class Tag {
     public function append($contents=array()) {
         if (!is_array($contents) || !count($contents)) 
             $contents = func_get_args();
+        
         foreach ($contents as $content) {
             $this->insertIn($content, count($this->content));
         }
@@ -400,6 +401,7 @@ abstract class Tag {
      * @toto implements selector
      */
     public function children($selector=null) {
+        if (is_null($selector)) $selector = "*";
         $list = array();
         foreach ($this->content as $content) {
             if ($content instanceof Tag)
@@ -589,7 +591,7 @@ abstract class Tag {
     /**
      * Remove all child nodes and all attributes
      * 
-     * @return Tag The object reference
+     * @return \Tag The object reference
      */
     public function emptyAll() {
         return $this->emptyContent()->emptyAttr();
@@ -599,7 +601,7 @@ abstract class Tag {
      * Remove all attributes
      * @param boolean $recursive Determine if clean attributes recursive. The Default is false
      * 
-     * @return Tag The object reference
+     * @return \Tag The object reference
      */
     public function emptyAttr($recursive=false) {
         $this->attributes = array();
@@ -640,7 +642,7 @@ abstract class Tag {
      *      A string containing a selector expression to match the current set of elements against,
      *      function(content)A function used as a test for each element in the set.
      * 
-     * @return \Tag
+     @return \Tag The object reference
      */
     public function filter($selectorOrFunction) {
         $this->content = $this->children()->filter($selectorOrFunction)->toArray();
@@ -671,7 +673,7 @@ abstract class Tag {
      *      A string containing a selector expression to match elements against.
      *      A Tag element to match elements against.
      * 
-     * @return \Tag
+     @return \Tag The object reference
      */
     public function has($selectorOrTag) {
         $list = array();
@@ -783,7 +785,7 @@ abstract class Tag {
      * Insert every element in the set of matched elements after the target.
      * @param Tag $target Tag element container
      * 
-     * @return \Tag
+     @return \Tag The object reference
      */
     public function insertAfter(Tag $target) {
         $target->after($this);
@@ -794,7 +796,7 @@ abstract class Tag {
      * Insert every element in the set of matched elements before the target.
      * @param Tag $target Tag element container
      * 
-     * @return \Tag
+     @return \Tag The object reference
      */
     public function insertBefore(Tag $target) {
         $target->before($this);
@@ -821,11 +823,123 @@ abstract class Tag {
     }
     
     /**
-     * Retorna o pai do elemento em questão, se o elemento não possui pai retorna um objeto Tags
-     * @return Tag|Tags - Referencia para o objeto
+     * Reduce the set of matched elements to the final one in the set.
+     * 
+     * @return mixed \Tag or empty \Tags when not found index
      */
-    public function parent() {
-        if (empty($this->parent)) {
+    public function last() {
+        return $this->eq($this->length());
+    }
+    
+    /**
+     * The number of elements in the Tag object.
+     * 
+     * @return int
+     */
+    public function length() {
+        return count($this->children()->toArray());
+    }
+    
+    /**
+     * Get the immediately following sibling of each element in the set of matched elements.
+     * If a selector is provided, it retrieves the next sibling only if it matches that selector.
+     * @param string $selector A string containing a selector expression to match elements against.
+     * 
+     * @return mixed \Tag or empty \Tags when not found next
+     */
+    public function next($selector=null) {
+        if (is_null($selector)) {
+            return $this->eq($this->index() + 1);
+        }
+        else {
+            $list = $this->parent()->children()->toArray();
+            $ret = Selector::run(array_slice($list, $this->index()+1), $selector, array('deep'=>false, 'max'=>1));
+            if (count($ret))
+                return $ret[0];
+            else
+                return new Tags(array(), $this);
+        }
+    }
+    
+    /**
+     * Get all following siblings of each element in the set of matched elements, optionally filtered by a selector.
+     * @param string $selector A string containing a selector expression to match elements against.
+     * 
+     * @return \Tags List of all next
+     */
+    public function nextAll($selector=null) {
+        return $this->nextUntil(null, $selector);
+    }
+    
+    /**
+     * Get all following siblings of each element up to but not including the element matched by the selector or Tag object passed.
+     * @param mixed $elementOrSelector
+     *      A string containing a selector expression to indicate where to stop matching following sibling elements.
+     *      A Tag object indicating where to stop matching following sibling elements.
+     * @param type $filter A string containing a selector expression to match elements against.
+     * 
+     * @return \Tags List of all next
+     */
+    public function nextUntil($elementOrSelector, $filter=null) {
+        $list = $this->parent()->children()->toArray();
+        $start = $this->index()+1;
+        if (empty($elementOrSelector))
+            $end = count($list) - $start;
+        else if($elementOrSelector instanceof Tag)
+            $end = $elementOrSelector->index() - $start;
+        else if(is_string($elementOrSelector))
+            return $this->nextUntil($this->next($elementOrSelector), $filter);
+        else
+            $end = 0;
+        
+        if (is_null($filter)) {
+            return new Tags(array_slice($list, $start, $end), $this);
+        }
+        else {
+            return new Tags(Selector::run(array_slice($list, $start, $end), $filter, array('deep'=>false)), $this);
+        }
+    }
+    
+    /**
+     * Remove elements from the set of matched elements.
+     * @param mixed $selectOrElement
+     *      selector - A string containing a selector expression to match elements against.
+     *      elements - Array with one or more \Tag elements to remove from the matched set.
+     *      function(Tag) - A function used as a test for each element in the set.
+     *      \Tag or \Tags - Elements to be filtered
+     * 
+     * @return \Tag The object reference
+     */
+    public function not($selectOrElement) {
+        if ($selectOrElement instanceof Tag)
+            $filter = array($selectOrElement);
+        else if($selectOrElement instanceof Tags)
+            $filter = $selectOrElement->toArray();
+        else if (is_callable($selectOrElement)) {
+            $filter = array();
+            foreach ($this->children()->toArray() as $content) {
+                if ($selectOrElement($content)) $filter[] = $content;
+            }
+        }
+        else if (is_string($selectOrElement))
+            $filter = Selector::run($this->children(), $selectOrElement, array('deep'=>false));
+        else if (is_array($selectOrElement))
+            $filter = $selectOrElement;
+        else
+            $filter = array();
+        
+        $this->content = array_diff($this->content, $filter);
+        return $this;
+    }
+    
+    /**
+     * Get the parent of each element in the current set of matched elements, optionally filtered by a selector
+     * @param string $selector A string containing a selector expression to match elements against.
+     * 
+     * @return mixed \Tag or empty \Tags when not found next
+     */
+    public function parent($selector=null) {
+        if (empty($this->parent) && is_null($selector)) {
             if ($this instanceof EmptyTag)
                 return new Tags($this);
             else {
@@ -833,35 +947,148 @@ abstract class Tag {
                 $obj->insertIn($this, 0);
             }
         }
-        return $this->parent;
+        if (is_null($selector))
+            return $this->parent;
+        else {
+            $ret = Selector::run($this->parent, $selector, array('deep'=>false));
+            if (count($ret)) return $ret;
+            else return new Tags(array(), $this);
+        }
     }
     
     /**
-     * Adiciona conteudo de texto (html) ou novos objetos Tag no inicio do elemento
-     * @param string|Tag $content
+     * Get the ancestors of each element in the current set of matched elements, optionally filtered by a selector.
+     * @param string $selector A string containing a selector expression to match elements against.
      * 
-     * @return Tag - Referencia para o elemento que acabou de adiconar um novo filho
+     * @return \Tags with all parents
+     */
+    public function parents($selector=null) {
+        return $this->parentUntil(null, $selector);
+    }
+    
+    /**
+     * Get the ancestors of each parent element in the current set of matched elements, up to but not including the element matched by the selector or Tag object.
+     * @param mixed $elementOrSelector
+     *      A string containing a selector expression to indicate where to stop matching following parent elements.
+     *      A Tag object indicating where to stop matching following parent elements.
+     * @param type $filter A string containing a selector expression to match elements against.
+     * 
+     * @return \Tags List of all next
+     */
+    public function parentsUntil($elementOrSelector, $filter=null) {
+        if (is_string($elementOrSelector)) {
+            $list = Selector::run($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
+            if (count($list))
+                $element = $list[0];
+            else
+                $element = null;
+        }
+        else $element = $elementOrSelector;
+        
+        if (empty($filter))
+            $filter = "*";
+        return new Tags(Selector::run($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
+    }
+    
+    /**
+     * Insert content, specified by the parameter, to the beginning of each element in the set of matched elements.
+     * @param mixed $content Accept one or more additional content
+     *      HTML string, 
+     *      Tag or Tags object, 
+     *      function function(Tag) to append in this element.
+     *      Array of all types
+     * 
+     * @return \Tag - The object reference
      */
     public function prepend($content) {
         return $this->insertIn($content, 0);
     }
     
     /**
-     * Método sobrecarregado de GET ou SET para definir propriedades para o elemento
-     * Propriedade são atributos que possuem valor logico
-     * Em html corresponde aos atributos que quando estão presentes a propriedade é verdadeira, caso contrario falso
-     * Exemplo: checked, disabled, selected, etc
-     *    SET - Parâmetro $value deve ser diferente de null 
-     *    GET - Parâmetro $value ausente ou null
-     * @param string $propName Nome do atributo/propriedade
-     * @param boolean $value Valor lógico definindo se a propriedade está presente ou não
+     * Insert every element in the set of matched elements to the begin of the target.
+     * @param mixed $target Tag or Tags object
      * 
-     * @return string|Tag Retorna o valor do atributo associado (get) ou a instancia da classe (set)
+     * @return \Tag - The object reference
+     */
+    public function prependTo($target) {
+        $target->prepend($this);
+    }
+    
+    /**
+     * Get the immediately preceding sibling of each element in the set of matched elements.
+     * If a selector is provided, it retrieves the prev sibling only if it matches that selector.
+     * @param string $selector A string containing a selector expression to match elements against.
+     * 
+     * @return mixed \Tag or empty \Tags when not found prev
+     */
+    public function prev($selector=null) {
+        if (is_null($selector)) {
+            return $this->eq($this->index() - 1);
+        }
+        else {
+            $list = $this->parent()->children()->toArray();
+            $ret = Selector::run(array_slice($list, 0, $this->index()-1), $selector, array('deep'=>false, 'max'=>1));
+            if (count($ret))
+                return $ret[0];
+            else
+                return new Tags(array(), $this);
+        }
+    }
+    
+    /**
+     * Get all preceding siblings of each element in the set of matched elements, optionally filtered by a selector.
+     * @param string $selector A string containing a selector expression to match elements against.
+     * 
+     * @return \Tags List of all prev
+     */
+    public function prevAll($selector=null) {
+        return $this->prevUntil(null, $selector);
+    }
+    
+    /**
+     * Get all preceding siblings of each element up to but not including the element matched by the selector or \Tag object.
+     * @param mixed $elementOrSelector
+     *      A string containing a selector expression to indicate where to stop matching following sibling elements.
+     *      A Tag object indicating where to stop matching following sibling elements.
+     * @param type $filter A string containing a selector expression to match elements against.
+     * 
+     * @return \Tags List of all prev
+     */
+    public function prevUntil($elementOrSelector, $filter=null) {
+        $list = $this->parent()->children()->toArray();        
+        if (empty($elementOrSelector))
+            $end = count($list);
+        else if($elementOrSelector instanceof Tag)
+            $end = $elementOrSelector->index();
+        else if(is_string($elementOrSelector))
+            return $this->prevUntil($this->prev($elementOrSelector), $filter);
+        else
+            $end = 0;
+        
+        if (is_null($filter)) {
+            return new Tags(array_slice($list, 0, $end), $this);
+        }
+        else {
+            return new Tags(Selector::run(array_slice($list, 0, $end), $filter, array('deep'=>false)), $this);
+        }
+    }
+    
+    /**
+     * Get the value of a property for the first element in the set of matched elements.
+     * Set one or more properties for the set of matched elements.
+     * @param string $propName Nome do atributo/propriedade
+     *      propertyName The name of the property to set.
+     *      A map of property-value pairs to set.
+     * @param boolean $value 
+     *      string - A value to set for the property.
+     *      function(\Tag, propertyName) - A function returning the value to set.
+     * 
+     *  @return mixed In set return a \Tag object reference, in get return boolean value of property
      */
     public function prop($propName, $value=null) {
         if (is_null($value)) {
             // Metodo GET
-            return $this->attr($propName) == $propName;
+            return strtolower($this->attr($propName)) == strtolower($propName);
         }
         else {
             // Metodo SET
@@ -876,99 +1103,143 @@ abstract class Tag {
     }
     
     /**
-     * Remove o elemento passado por parâmetro da lista de filhos
-     * Se o elemento não for encontado, nada acontece
-     * @param \Tag $content Objeto que deverá ser removido da lista de conteúdo
+     * Remove the set of matched elements from the DOM.
+     * @param mixed $contentOrSelector
+     *      content A \Tag or \Tags object
+     *      selector A selector expression that filters the set of matched elements to be removed.
+     *      function(\Tag) The function define if remove or not
      * 
-     * @return \Tag - Referencia para o elemento
+     * @return \Tag - The object reference
      */
-    public function remove($content) {
-        if (in_array($content, $this->content)) {
-            $this->content = array_diff($this->content, array($content));
-            $content->setParent(null);
+    public function remove($contentOrSelector) {
+        if (is_callable($contentOrSelector)) {
+            $contents = array();
+            foreach ($this->children()->toArray() as $content) {
+                if ($contentOrSelector($content))
+                    $contents[] = $content;
+            }
+        }
+        else if (is_string($contentOrSelector))
+            $contents = Selector($this->content, $contentOrSelector, array('deep'=>false));
+        else if ($contentOrSelector instanceof Tag)
+            $contents = array($contentOrSelector);
+        else if ($contentOrSelector instanceof Tags)
+            $contents = $contentOrSelector->toArray();
+        else if (is_array($contentOrSelector))
+            $contents = $contentOrSelector;
+        else
+            $contents = array();
+        
+        foreach ($contents as $content) {
+            if (in_array($content, $this->content)) {
+                $this->content = array_diff($this->content, array($content));
+                $content->setParent(null);
+            }
         }
         return $this;
     }
     
     /**
-     * Remove um atributo eliminando assim seu valor
-     * @param string $attrName Nome do atributo a ser removido
+     * Remove an attribute from each element in the set of matched elements.
+     * @param string $attrName
+     *      name A string naming the piece of data to delete.
+     *      list An array or space-separated string naming the pieces of attributes to delete.
      * 
-     * @return Tag - Referencia para o elemento
+     * @return \Tag - The object reference
      */
     public function removeAttr($attrName) {
-        if (isset($this->attributes[$attrName]))
-            unset($this->attributes[$attrName]);
+        if (!is_array($attrName))
+            $attrName = explode(' ', $attrName);
+        
+        foreach ($attrName as $name) {
+            if (isset($this->attributes[$name]))
+                unset($this->attributes[$name]);
+        }
+        
         return $this;
     }
     
     /**
-     * Retira uma ou mais classes do elemento
-     * @param string $className Nome das classes separadas por espaço
+     * Remove a single class, multiple classes, or all classes from each element in the set of matched elements.
+     * @param string $classOrFunction 
+     *      className One or more space-separated classes to be removed from the class attribute of each matched element.
+     *      function(Tag, classActual) A function returning one or more space-separated class names to be removed. 
      * 
-     * @return \Tag - Referencia para o objeto
+     * @return \Tag - The object reference
      */
-    public function removeClass($className) {
-        $classes = explode(' ', $className);
+    public function removeClass($classOrFunction) {
         $newClasses = $this->attr('class');
-        foreach ($classes as $cls) {
+        if (is_callable($classOrFunction))
+            $classOrFunction = $classOrFunction($this, $newClasses);
+
+        $classes = explode(' ', $classOrFunction);
+        foreach ($classes as $cls)
             $newClasses = str_replace($cls, '', $newClasses);
-        }
+        
         $this->attr('class', $newClasses);
         return $this;
     }
     
     /**
-     * Remove um dado associado ao elemento
-     * @param string $attrName Nome do atributo a ser removido
+     * Remove a previously-stored piece of data.
+     * @param mixed $dataName
+     *      name A string naming the piece of data to delete.
+     *      list An array or space-separated string naming the pieces of data to delete.
      * 
-     * @return \Tag - Referencia para o elemento
+     * @return \Tag - The object reference
      */
-    public function removeData($attrName) {
-        return $this->removeAttr('data-' . $attrName);
+    public function removeData($dataName) {
+        if (!is_array($dataName))
+            $dataName = explode(' ', $dataName);
+        
+        foreach ($dataName as $data) {
+            $this->removeAttr('data-' . $data);
+        }
+        
+        return $this;
     }
     
     /**
-     * Remove uma propriedade do elemento
-     * @param string $propName Nome do atributo a ser removido
+     * Remove a property for the set of matched elements.
+     * @param mixed $propName
+     *      name A string naming the piece of data to delete.
+     *      list An array or space-separated string naming the pieces of data to delete.
      * 
-     * @return \Tag - Referencia para o elemento
+     * @return \Tag - The object reference
      */
     public function removeProp($propName) {
         return $this->removeAttr($propName);
     }
-    
+        
     /**
-     * Retorna uma lista (Tags) com os elementos que estão no mesmo nível no elemento e que possuem o mesmo pai
+     * Get the siblings of each element in the set of matched elements, optionally filtered by a selector.
+     * @param string $selector A string containing a selector expression to match elements against.
      * 
-     * @return Tags Lista com os irmãos
+     * @return \Tags
      */
-    public function siblings() {
-        $list = array();
-        //TODO transform Tags in iterable
-        foreach ($this->parent()->children() as $content) {
-            if ($content != $this)
-                $list[] = $content;
-        }
-        new Tags($list);
+    public function siblings($selector=null) {
+        $list = Selector::run($this->parent()->children(), $selector, array('deep'=>false));
+        return new Tags(array_diff($list, array($this)), $this);
     }
     
     /**
-     * Retorna a quantidade elementos que o elemento possui
+     * Return the number of elements in the jQuery object.
+     * The .size() method is functionally equivalent to the .length()
      * 
      * @return int
      */
     public function size() {
-        return $this->children()->size();
+        return $this->length();
     }
     
     /**
-     * Método sobrecarregado de GET ou SET para definir o conteudo de texto do elemento 
-     *    SET - Parâmetro $content diferente de null
-     *    GET - Parâmetro $content igual a null
-     * @param string $content Texto para substituir o conteudo atual
+     * Get the combined text contents of each element in the set of matched elements, including their descendants.
+     * Set the content of each element in the set of matched elements to the specified text.
+     * @param mixed $content 
+     *          textString A string of text to set as the content of each matched element.
+     *          function(Tag, text) A function returning the text content to set. 
      * 
-     * @return Tag|string Referencia para o elemento (set) ou texto do conteudo do elemento (get)
+     * @return mixed In set return a \Tag object reference, in get return string value of atribute
      */
     public function text($content=null) {
         if (is_null($content)) {
@@ -978,15 +1249,26 @@ abstract class Tag {
         else {
             // Metodo SET
             $this->emptyContent();
+            if (is_callable($content))
+                $content = $content($this, $this->text());
             $this->content[] = htmlspecialchars($content);
             return $this;
         }
     }
     
     /**
-     * Retorna o elemento e todo o seu conteudo renderizado no formato HTML
+     * Retrieve all the DOM elements contained in the jQuery set, as an array.
      * 
-     * @return string String HTML do elemento renderizado
+     * @return array
+     */
+    public function toArray() {
+        return $this->children()->toArray();
+    }
+    
+    /**
+     * Convert all elements to html
+     * 
+     * @return string
      */
     public function toString() {
         $tagname = strtolower($this->getTagName());
@@ -1022,5 +1304,22 @@ abstract class Tag {
         return $html;
     }
     
-    // val
+    /**
+     * Get the current value of the first element in the set of matched elements.
+     * Set the value of each element in the set of matched elements.
+     * @param mixed $value
+     *      value A string of text or an array of strings corresponding to the value of each matched element to set as selected/checked.
+     *      function(Tag) A function returning the value to set. 
+     * 
+     * @return mixed In set return a \Tag object reference, in get return string value of atribute
+     */
+    public function val($value=null) {
+        if (is_null($value)) {
+            return $this->attr('value');
+        }
+        else {
+            $this->attr('value', $value);
+        }
+        return $this;
+    }
 }
