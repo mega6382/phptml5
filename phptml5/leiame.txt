@@ -1,2 +1,0 @@
-O conceito central da biblioteca phptml5 consiste fornecer classes e um modo simples de criar conteudo
-html5 facilmente usando algumas estratégias utilizadas pelo jquery.

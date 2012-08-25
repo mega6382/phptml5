@@ -6,10 +6,10 @@
  *
  * @author Adriano_2012
  */
-abstract class Tag {
+abstract class pQryTag {
     /**
      * Referente to parent element
-     * @var Tag 
+     * @var pQryTag 
      */
     protected $parent;
     
@@ -57,7 +57,7 @@ abstract class Tag {
      * Insert the content(s) in specific position, when position is invalid adding on end list
      * @param mixed $content Element/Elements to be add. HTML String or Tag element
      * @param integer $index Order to be adding
-     * @return \Tag
+     * @return \pQryTag
      */
     protected function insertIn($content, $index) {
         if ($index < 0 || $index > count($this->content)) {
@@ -66,7 +66,7 @@ abstract class Tag {
         $contents = $this->parseInternal($content);
         $list = array();
         foreach ($contents as $content) {
-            if ($content instanceof Tag) {
+            if ($content instanceof pQryTag) {
                 $content->setParent($this);
             }
             $list[] = $content;
@@ -109,11 +109,11 @@ abstract class Tag {
         if (is_callable($content))
             $content = $this->parseInternal($content($this));
         
-        if ($content instanceof Tag) {
-            if ($content instanceof EmptyTag) return $content->content;
+        if ($content instanceof pQryTag) {
+            if ($content instanceof pQryEmpty) return $content->content;
             else return array($content);
         }
-        else if($content instanceof Tags)
+        else if($content instanceof pQryObj)
             return $content->toArray();
         
         if (strlen($content) == strlen(strip_tags($content)))
@@ -126,8 +126,8 @@ abstract class Tag {
      * Set the parent to element
      * If element alread has parent, it will be changed
      * 
-     * @param \Tag $parent New Parent
-     * @return \Tag
+     * @param \pQryTag $parent New Parent
+     * @return \pQryTag
      */
     protected function setParent($parent) {
         if ($parent == null) {
@@ -189,7 +189,7 @@ abstract class Tag {
     /**
      * Recursive function used in parser
      * @param array $node Array used in HtmlParser::toArray
-     * @return \Tag
+     * @return \pQryTag
      */
     protected static function parseNode($node) {
         // Create obj
@@ -198,7 +198,7 @@ abstract class Tag {
             $obj = new $tagName();
         }
         else {
-            $obj = new GenericTag($tagName);
+            $obj = new pQryHTML($tagName);
         }
 
         // Set Attributes
@@ -228,7 +228,7 @@ abstract class Tag {
         $contents = $this->content;
         $this->content = array();
         foreach ($contents as $content) {
-            if ($content instanceof Tag)
+            if ($content instanceof pQryTag)
                 $this->append(clone $content);     
             else
                 $this->append ($content);
@@ -260,7 +260,7 @@ abstract class Tag {
      *      function(Tag, currentClass) - A function returning one or more space-separated class names to be added to the existing class name(s). 
      *          Receives the element in the set and the existing class name(s) as arguments.
      * 
-     * @return Tag - The object reference
+     * @return pQryTag - The object reference
      */
     public function addClass($classNameOrFunction) {
         if (is_callable($classNameOrFunction))
@@ -284,7 +284,7 @@ abstract class Tag {
      *      function function(Tag) to insert after this element.
      *      Array of all types
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function after($contents=array()) {
         $index =  $this->index()+1;
@@ -315,7 +315,7 @@ abstract class Tag {
      *      function function(Tag) to append in this element.
      *      Array of all types
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function append($contents=array()) {
         if (!is_array($contents) || !count($contents)) 
@@ -331,7 +331,7 @@ abstract class Tag {
      * Insert every element in the set of matched elements to the end of the target.
      * @param mixed $target Tag or Tags object,
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function appendTo($target) {
         $target->append($this);
@@ -379,7 +379,7 @@ abstract class Tag {
      *      function function(Tag) to insert after this element.
      *      Array of all types
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function before($contents=array()) {
         $father = $this->parent();
@@ -397,17 +397,17 @@ abstract class Tag {
     /**
      * Get the children of each element in the set of matched elements, optionally filtered by a selector.
      * 
-     * @return Tags List of children
+     * @return pQryObj List of children
      * @toto implements selector
      */
     public function children($selector=null) {
         if (is_null($selector)) $selector = "*";
         $list = array();
         foreach ($this->content as $content) {
-            if ($content instanceof Tag)
+            if ($content instanceof pQryTag)
                 $list[] = $content;
         }
-        return new Tags(Selector::run($list, $selector, array('deep'=>false)), $this);
+        return new pQryObj(pQryCore::run($list, $selector, array('deep'=>false)), $this);
     }
     
     /**
@@ -415,7 +415,7 @@ abstract class Tag {
      * @param boolean $withAttr=true A Boolean indicating whether attributes should be copied along with the elements.
      * @param boolean $withContent=true A Boolean indicating whether data content should be copied along with the elements.
      * 
-     * @return \Tag The new object reference
+     * @return \pQryTag The new object reference
      */
     public function cloneThis($withAttr=true, $withContent=true) {
         $obj = clone $this;
@@ -436,9 +436,9 @@ abstract class Tag {
      * @return mixed \Tag or \Tags
      */
     public function closest($selector=null) {
-        $data = Selector::run(array($this), $selector, array('max'=>1, 'dir'=>'up'));
+        $data = pQryCore::run(array($this), $selector, array('max'=>1, 'dir'=>'up'));
         if (empty($data))
-            return new Tags($this);
+            return new pQryObj($this);
         else
             return $data[0];
     }
@@ -446,15 +446,15 @@ abstract class Tag {
     /**
      * Check to see if a Tag is within this element.
      * Text are too supported.
-     * @param Tag $contained The Tag element that may be contained by the other element.
+     * @param pQryTag $contained The Tag element that may be contained by the other element.
      * 
      * @return boolean true if contains and false otherwise
      */
-    public function contains(Tag $contained) {
+    public function contains(pQryTag $contained) {
         $ret = in_array($contained, $this->content);
         if (!$ret) {
             foreach ($this->content as $obj) {
-                if ($obj instanceof Tag) {
+                if ($obj instanceof pQryTag) {
                     $ret = $ret || $obj->contains($contained);
                     if ($ret) break;
                 }
@@ -576,7 +576,7 @@ abstract class Tag {
      * @param string $function Function name that receive function(index, Element)
      * @param boolean $onlyTag Determine if iterable with only Element or accept all content
      * 
-     * @return \Tag The object reference
+     * @return \pQryTag The object reference
      */
     public function each($function, $onlyTag=false) {
         if (is_callable($function)) {
@@ -591,7 +591,7 @@ abstract class Tag {
     /**
      * Remove all child nodes and all attributes
      * 
-     * @return \Tag The object reference
+     * @return \pQryTag The object reference
      */
     public function emptyAll() {
         return $this->emptyContent()->emptyAttr();
@@ -601,13 +601,13 @@ abstract class Tag {
      * Remove all attributes
      * @param boolean $recursive Determine if clean attributes recursive. The Default is false
      * 
-     * @return \Tag The object reference
+     * @return \pQryTag The object reference
      */
     public function emptyAttr($recursive=false) {
         $this->attributes = array();
         if ($recursive) {
             foreach ($this->content as $content) {
-                if ($content instanceof Tag)
+                if ($content instanceof pQryTag)
                     $content->emptyAttr(true);
             }
         }
@@ -617,7 +617,7 @@ abstract class Tag {
     /**
      * Remove all child nodes
      * 
-     * @return \Tag The object reference
+     * @return \pQryTag The object reference
      */
     public function emptyContent() {
         $this->content = array();
@@ -642,7 +642,7 @@ abstract class Tag {
      *      A string containing a selector expression to match the current set of elements against,
      *      function(content)A function used as a test for each element in the set.
      * 
-     @return \Tag The object reference
+     @return \pQryTag The object reference
      */
     public function filter($selectorOrFunction) {
         $this->content = $this->children()->filter($selectorOrFunction)->toArray();
@@ -652,10 +652,10 @@ abstract class Tag {
     /**
      * Get the descendants of each element in the current set of matched elements, filtered by a selector
      * @param string $selector A string containing a selector expression to match elements against.
-     * @return \Tags
+     * @return \pQryObj
      */
     public function find($selector) {
-        return new Tags(Selector::run($this, $selector), $this);
+        return new pQryObj(pQryCore::run($this, $selector), $this);
     }
     
     /**
@@ -673,13 +673,13 @@ abstract class Tag {
      *      A string containing a selector expression to match elements against.
      *      A Tag element to match elements against.
      * 
-     @return \Tag The object reference
+     @return \pQryTag The object reference
      */
     public function has($selectorOrTag) {
         $list = array();
-        if ($selectorOrTag instanceof Tag) {
+        if ($selectorOrTag instanceof pQryTag) {
             foreach ($this->content as $content) {
-                if ($content instanceof Tag) {
+                if ($content instanceof pQryTag) {
                     if ($content->contains($selectorOrTag) || $content == $selectorOrTag)
                         $list[] = $content;
                 }
@@ -687,8 +687,8 @@ abstract class Tag {
         }
         else {
             foreach ($this->content as $content) {
-                if ($content instanceof Tag) {
-                    if (count(Selector::run($content, $selectorOrTag)))
+                if ($content instanceof pQryTag) {
+                    if (count(pQryCore::run($content, $selectorOrTag)))
                         $list[] = $content;
                 }
             }
@@ -727,7 +727,7 @@ abstract class Tag {
             // Metodo GET
             $html = "";
             foreach ($this->content as $content) {
-                if ($content instanceof Tag) {
+                if ($content instanceof pQryTag) {
                     $html .= $content->toString();
                 }
                 else {
@@ -768,7 +768,7 @@ abstract class Tag {
         }
         else {
             if (is_string($selectorOrTag)) {
-                $list = Selector::run($this->children(), $selectorOrTag, array('deep'=>false, 'max'=>1));
+                $list = pQryCore::run($this->children(), $selectorOrTag, array('deep'=>false, 'max'=>1));
                 if (count($list))
                     $selectorOrTag = $list[0];
                 else
@@ -783,22 +783,22 @@ abstract class Tag {
     
     /**
      * Insert every element in the set of matched elements after the target.
-     * @param Tag $target Tag element container
+     * @param pQryTag $target Tag element container
      * 
-     @return \Tag The object reference
+     @return \pQryTag The object reference
      */
-    public function insertAfter(Tag $target) {
+    public function insertAfter(pQryTag $target) {
         $target->after($this);
         return $this;
     }
     
     /**
      * Insert every element in the set of matched elements before the target.
-     * @param Tag $target Tag element container
+     * @param pQryTag $target Tag element container
      * 
-     @return \Tag The object reference
+     @return \pQryTag The object reference
      */
-    public function insertBefore(Tag $target) {
+    public function insertBefore(pQryTag $target) {
         $target->before($this);
         return $this;
     }
@@ -814,12 +814,12 @@ abstract class Tag {
      * @return boolean
      */
     public function is($selectorOrOther) {
-        if ($selectorOrOther instanceof Tag)
+        if ($selectorOrOther instanceof pQryTag)
             return $this == $selectorOrOther;
         else if (is_callable($selectorOrOther))
             return $selectorOrOther($this);
         else
-            return (bool)count(Selector::run($this, $selectorOrOther, array('deep'=>false)));
+            return (bool)count(pQryCore::run($this, $selectorOrOther, array('deep'=>false)));
     }
     
     /**
@@ -853,11 +853,11 @@ abstract class Tag {
         }
         else {
             $list = $this->parent()->children()->toArray();
-            $ret = Selector::run(array_slice($list, $this->index()+1), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::run(array_slice($list, $this->index()+1), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
-                return new Tags(array(), $this);
+                return new pQryObj(array(), $this);
         }
     }
     
@@ -865,7 +865,7 @@ abstract class Tag {
      * Get all following siblings of each element in the set of matched elements, optionally filtered by a selector.
      * @param string $selector A string containing a selector expression to match elements against.
      * 
-     * @return \Tags List of all next
+     * @return \pQryObj List of all next
      */
     public function nextAll($selector=null) {
         return $this->nextUntil(null, $selector);
@@ -878,14 +878,14 @@ abstract class Tag {
      *      A Tag object indicating where to stop matching following sibling elements.
      * @param type $filter A string containing a selector expression to match elements against.
      * 
-     * @return \Tags List of all next
+     * @return \pQryObj List of all next
      */
     public function nextUntil($elementOrSelector, $filter=null) {
         $list = $this->parent()->children()->toArray();
         $start = $this->index()+1;
         if (empty($elementOrSelector))
             $end = count($list) - $start;
-        else if($elementOrSelector instanceof Tag)
+        else if($elementOrSelector instanceof pQryTag)
             $end = $elementOrSelector->index() - $start;
         else if(is_string($elementOrSelector))
             return $this->nextUntil($this->next($elementOrSelector), $filter);
@@ -893,10 +893,10 @@ abstract class Tag {
             $end = 0;
         
         if (is_null($filter)) {
-            return new Tags(array_slice($list, $start, $end), $this);
+            return new pQryObj(array_slice($list, $start, $end), $this);
         }
         else {
-            return new Tags(Selector::run(array_slice($list, $start, $end), $filter, array('deep'=>false)), $this);
+            return new pQryObj(pQryCore::run(array_slice($list, $start, $end), $filter, array('deep'=>false)), $this);
         }
     }
     
@@ -908,12 +908,12 @@ abstract class Tag {
      *      function(Tag) - A function used as a test for each element in the set.
      *      \Tag or \Tags - Elements to be filtered
      * 
-     * @return \Tag The object reference
+     * @return \pQryTag The object reference
      */
     public function not($selectOrElement) {
-        if ($selectOrElement instanceof Tag)
+        if ($selectOrElement instanceof pQryTag)
             $filter = array($selectOrElement);
-        else if($selectOrElement instanceof Tags)
+        else if($selectOrElement instanceof pQryObj)
             $filter = $selectOrElement->toArray();
         else if (is_callable($selectOrElement)) {
             $filter = array();
@@ -922,7 +922,7 @@ abstract class Tag {
             }
         }
         else if (is_string($selectOrElement))
-            $filter = Selector::run($this->children(), $selectOrElement, array('deep'=>false));
+            $filter = pQryCore::run($this->children(), $selectOrElement, array('deep'=>false));
         else if (is_array($selectOrElement))
             $filter = $selectOrElement;
         else
@@ -940,19 +940,19 @@ abstract class Tag {
      */
     public function parent($selector=null) {
         if (empty($this->parent) && is_null($selector)) {
-            if ($this instanceof EmptyTag)
-                return new Tags($this);
+            if ($this instanceof pQryEmpty)
+                return new pQryObj($this);
             else {
-                $obj = new EmptyTag();
+                $obj = new pQryEmpty();
                 $obj->insertIn($this, 0);
             }
         }
         if (is_null($selector))
             return $this->parent;
         else {
-            $ret = Selector::run($this->parent, $selector, array('deep'=>false));
+            $ret = pQryCore::run($this->parent, $selector, array('deep'=>false));
             if (count($ret)) return $ret;
-            else return new Tags(array(), $this);
+            else return new pQryObj(array(), $this);
         }
     }
     
@@ -960,7 +960,7 @@ abstract class Tag {
      * Get the ancestors of each element in the current set of matched elements, optionally filtered by a selector.
      * @param string $selector A string containing a selector expression to match elements against.
      * 
-     * @return \Tags with all parents
+     * @return \pQryObj with all parents
      */
     public function parents($selector=null) {
         return $this->parentUntil(null, $selector);
@@ -973,11 +973,11 @@ abstract class Tag {
      *      A Tag object indicating where to stop matching following parent elements.
      * @param type $filter A string containing a selector expression to match elements against.
      * 
-     * @return \Tags List of all next
+     * @return \pQryObj List of all next
      */
     public function parentsUntil($elementOrSelector, $filter=null) {
         if (is_string($elementOrSelector)) {
-            $list = Selector::run($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
+            $list = pQryCore::run($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
             if (count($list))
                 $element = $list[0];
             else
@@ -987,7 +987,7 @@ abstract class Tag {
         
         if (empty($filter))
             $filter = "*";
-        return new Tags(Selector::run($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
+        return new pQryObj(pQryCore::run($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
     }
     
     /**
@@ -998,7 +998,7 @@ abstract class Tag {
      *      function function(Tag) to append in this element.
      *      Array of all types
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function prepend($content) {
         return $this->insertIn($content, 0);
@@ -1008,7 +1008,7 @@ abstract class Tag {
      * Insert every element in the set of matched elements to the begin of the target.
      * @param mixed $target Tag or Tags object
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function prependTo($target) {
         $target->prepend($this);
@@ -1027,11 +1027,11 @@ abstract class Tag {
         }
         else {
             $list = $this->parent()->children()->toArray();
-            $ret = Selector::run(array_slice($list, 0, $this->index()-1), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::run(array_slice($list, 0, $this->index()-1), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
-                return new Tags(array(), $this);
+                return new pQryObj(array(), $this);
         }
     }
     
@@ -1039,7 +1039,7 @@ abstract class Tag {
      * Get all preceding siblings of each element in the set of matched elements, optionally filtered by a selector.
      * @param string $selector A string containing a selector expression to match elements against.
      * 
-     * @return \Tags List of all prev
+     * @return \pQryObj List of all prev
      */
     public function prevAll($selector=null) {
         return $this->prevUntil(null, $selector);
@@ -1052,13 +1052,13 @@ abstract class Tag {
      *      A Tag object indicating where to stop matching following sibling elements.
      * @param type $filter A string containing a selector expression to match elements against.
      * 
-     * @return \Tags List of all prev
+     * @return \pQryObj List of all prev
      */
     public function prevUntil($elementOrSelector, $filter=null) {
         $list = $this->parent()->children()->toArray();        
         if (empty($elementOrSelector))
             $end = count($list);
-        else if($elementOrSelector instanceof Tag)
+        else if($elementOrSelector instanceof pQryTag)
             $end = $elementOrSelector->index();
         else if(is_string($elementOrSelector))
             return $this->prevUntil($this->prev($elementOrSelector), $filter);
@@ -1066,10 +1066,10 @@ abstract class Tag {
             $end = 0;
         
         if (is_null($filter)) {
-            return new Tags(array_slice($list, 0, $end), $this);
+            return new pQryObj(array_slice($list, 0, $end), $this);
         }
         else {
-            return new Tags(Selector::run(array_slice($list, 0, $end), $filter, array('deep'=>false)), $this);
+            return new pQryObj(pQryCore::run(array_slice($list, 0, $end), $filter, array('deep'=>false)), $this);
         }
     }
     
@@ -1109,7 +1109,7 @@ abstract class Tag {
      *      selector A selector expression that filters the set of matched elements to be removed.
      *      function(\Tag) The function define if remove or not
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function remove($contentOrSelector) {
         if (is_callable($contentOrSelector)) {
@@ -1121,9 +1121,9 @@ abstract class Tag {
         }
         else if (is_string($contentOrSelector))
             $contents = Selector($this->content, $contentOrSelector, array('deep'=>false));
-        else if ($contentOrSelector instanceof Tag)
+        else if ($contentOrSelector instanceof pQryTag)
             $contents = array($contentOrSelector);
-        else if ($contentOrSelector instanceof Tags)
+        else if ($contentOrSelector instanceof pQryObj)
             $contents = $contentOrSelector->toArray();
         else if (is_array($contentOrSelector))
             $contents = $contentOrSelector;
@@ -1145,7 +1145,7 @@ abstract class Tag {
      *      name A string naming the piece of data to delete.
      *      list An array or space-separated string naming the pieces of attributes to delete.
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function removeAttr($attrName) {
         if (!is_array($attrName))
@@ -1165,7 +1165,7 @@ abstract class Tag {
      *      className One or more space-separated classes to be removed from the class attribute of each matched element.
      *      function(Tag, classActual) A function returning one or more space-separated class names to be removed. 
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function removeClass($classOrFunction) {
         $newClasses = $this->attr('class');
@@ -1186,7 +1186,7 @@ abstract class Tag {
      *      name A string naming the piece of data to delete.
      *      list An array or space-separated string naming the pieces of data to delete.
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function removeData($dataName) {
         if (!is_array($dataName))
@@ -1205,7 +1205,7 @@ abstract class Tag {
      *      name A string naming the piece of data to delete.
      *      list An array or space-separated string naming the pieces of data to delete.
      * 
-     * @return \Tag - The object reference
+     * @return \pQryTag - The object reference
      */
     public function removeProp($propName) {
         return $this->removeAttr($propName);
@@ -1215,11 +1215,11 @@ abstract class Tag {
      * Get the siblings of each element in the set of matched elements, optionally filtered by a selector.
      * @param string $selector A string containing a selector expression to match elements against.
      * 
-     * @return \Tags
+     * @return \pQryObj
      */
     public function siblings($selector=null) {
-        $list = Selector::run($this->parent()->children(), $selector, array('deep'=>false));
-        return new Tags(array_diff($list, array($this)), $this);
+        $list = pQryCore::run($this->parent()->children(), $selector, array('deep'=>false));
+        return new pQryObj(array_diff($list, array($this)), $this);
     }
     
     /**
@@ -1290,7 +1290,7 @@ abstract class Tag {
         if ($this->hasEndtag()) {
             // Content
             foreach ($this->content as $content) {
-                if ($content instanceof Tag)
+                if ($content instanceof pQryTag)
                     $html .= $content->toString();
                 else
                     $html .= $content;

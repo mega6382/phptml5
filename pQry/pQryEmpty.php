@@ -5,7 +5,7 @@
  *
  * @author Adriano_2012
  */
-class EmptyTag extends Tag {
+class pQryEmpty extends pQryTag {
     protected function getAttributeList() {
         return array();
     }

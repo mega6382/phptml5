@@ -3,10 +3,10 @@
  * This is the result of some selection
  * Represents zero or more Tag elements and apply the action for all
  */
-class Tags implements IteratorAggregate, arrayaccess, Countable {
+class pQryObj implements IteratorAggregate, arrayaccess, Countable {
     /**
      * Owner/Creator of Tags - null when created by user
-     * @var Tag or Tags element that created this Tags 
+     * @var pQryTag or Tags element that created this Tags 
      */
     protected $orign = null;
     
@@ -26,7 +26,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         if (is_array($listOrOwner)) {
             $this->elements = $listOrOwner;
             $this->orign = $owner;
-        } else if($listOrOwner instanceof Tag) {
+        } else if($listOrOwner instanceof pQryTag) {
             $this->orign = $listOrOwner;
         }
     }
@@ -72,12 +72,12 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
      * Merge with Tags or array
      * @param mixed $tagsOrVector Tags with elements or array of elements
      * 
-     * @return \Tags Reference to object Tags
+     * @return \pQryObj Reference to object Tags
      */
     protected function merge($tagsOrVector) {
         if (is_array($tagsOrVector)) {
             foreach ($tagsOrVector as $obj) {
-                if ($obj instanceof Tags) {
+                if ($obj instanceof pQryObj) {
                     $this->merge($obj);
                 }
                 else {
@@ -124,10 +124,10 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
     
     /**
      * Add the previous set of elements on the stack to the current set.
-     * @return \Tags
+     * @return \pQryObj
      */
     public function andSelf() {
-        if ($this->orign instanceof Tags)
+        if ($this->orign instanceof pQryObj)
             $list = $this->orign->elements;
         else
             $list = $this->orign;
@@ -185,7 +185,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
      * @see \Tag::children
      */
     public function children($selector=null) {
-        $newTags = new Tags(array(), $this);
+        $newTags = new pQryObj(array(), $this);
         foreach ($this->elements as $elem) { $newTags->merge($elem->children($selector)); }
         return $newTags;
     }
@@ -213,7 +213,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
     public function closest($selector=null) {
         foreach ($this->contents as $content) {
             $data = $content->closest($selector);
-            if ($data instanceof Tag) break;
+            if ($data instanceof pQryTag) break;
         }
         return $data;
     }
@@ -309,11 +309,11 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
     
     /**
      * End the most recent filtering operation in the current chain and return the set of matched elements to its previous state.
-     * @return \Tags
+     * @return \pQryObj
      */
     public function end() {
         if (is_null($this->orign))
-            return new Tags();
+            return new pQryObj();
         return $this->orign;
     }
     
@@ -324,7 +324,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         if ($index < 0)
             $index = count($this->elements) + $index;
         if ($index < 0 || $index >= count($this->elements))
-            return new Tags(array(), $this);
+            return new pQryObj(array(), $this);
         return $this->elements[$index];
     }
         
@@ -336,7 +336,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
             $this->elements = array_filter($this->elements, $selectorOrFunction);
         }
         else {
-            $this->elements = Selector::run($this->elements, $selectorOrFunction, array('deep'=>false));
+            $this->elements = pQryCore::run($this->elements, $selectorOrFunction, array('deep'=>false));
         }
         return $this;
     }
@@ -345,7 +345,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
      * @see \Tag::find
      */
     public function find($selector) {
-        $newTags = new Tags(array(), $this);
+        $newTags = new pQryObj(array(), $this);
         foreach ($this->elements as $elem) { $newTags->merge($elem->find($selector)); }
         return $newTags;
     }
@@ -362,7 +362,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
      */
     public function has($selectorOrTag) {
         $list = array();
-        if ($selectorOrTag instanceof Tag) {
+        if ($selectorOrTag instanceof pQryTag) {
             foreach ($this->elements as $content) {
                 if ($content->contains($selectorOrTag) || $content == $selectorOrTag)
                     $list[] = $content;
@@ -370,7 +370,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         }
         else {
             foreach ($this->elements as $content) {
-                if (count(Selector::run($content, $selectorOrTag)))
+                if (count(pQryCore::run($content, $selectorOrTag)))
                     $list[] = $content;
             }
         }
@@ -425,7 +425,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
      */
     public function index($selectorOrTag) {
         if (is_string($selectorOrTag)) {
-            $list = Selector::run($this->elements, $selectorOrTag, array('deep'=>false, 'max'=>1));
+            $list = pQryCore::run($this->elements, $selectorOrTag, array('deep'=>false, 'max'=>1));
             if (count($list))
                 $selectorOrTag = $list[0];
             else
@@ -440,7 +440,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
     /**
      * @see \Tag::insertAfter
      */
-    public function insertAfter(Tag $target) {
+    public function insertAfter(pQryTag $target) {
         foreach ($this->elements as $elem) $elem->insertAfter($target);
         return $this;
     }
@@ -448,7 +448,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
     /**
      * @see \Tag::insertBefore
      */
-    public function insertBefore(Tag $target) {
+    public function insertBefore(pQryTag $target) {
         foreach ($this->elements as $elem) $elem->insertBefore($target);
         return $this;
     }
@@ -484,17 +484,17 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         if (is_null($selector)) {
             return $this->eq($this->current + 1);
         }
-        else if ($selector instanceof Tag) {
+        else if ($selector instanceof pQryTag) {
             if (in_array($selector, $this->elements))
                 return $selector->next();
-            return new Tags(array(), $this);
+            return new pQryObj(array(), $this);
         }
         else {
-            $ret = Selector::run(array_slice($this->elements, $this->current+1), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::run(array_slice($this->elements, $this->current+1), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
-                return new Tags(array(), $this);
+                return new pQryObj(array(), $this);
         }
     }
     
@@ -511,23 +511,23 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
     public function nextUntil($elementOrSelector, $filter=null) {
         if (empty($elementOrSelector))
             $end = count($this->elements) - ($this->current+1);
-        else if($elementOrSelector instanceof Tag)
+        else if($elementOrSelector instanceof pQryTag)
             $end = $elementOrSelector->index() - $start;
         else if(is_string($elementOrSelector))
             return $this->nextUntil($this->next($elementOrSelector), $filter);
         else
             $end = 0;
         if (is_null($filter)) {
-            return new Tags(array_slice($this->elements, $this->current+1, $end), $this);
+            return new pQryObj(array_slice($this->elements, $this->current+1, $end), $this);
         }
-        else if ($filter instanceof Tag) {
+        else if ($filter instanceof pQryTag) {
             if (in_array($filter, $this->elements))
                 return $filter->nextUntil($elementOrSelector);
-            return new Tags(array(), $this);
+            return new pQryObj(array(), $this);
         }
         else {
-            $list = Selector::run(array_slice($this->elements, $this->current+1, $end), $selector, array('deep'=>false));
-            return new Tags($list, $this);
+            $list = pQryCore::run(array_slice($this->elements, $this->current+1, $end), $selector, array('deep'=>false));
+            return new pQryObj($list, $this);
         }
     }
     
@@ -535,9 +535,9 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
      * @see \Tag::not
      */
     public function not($selectOrElement) {
-        if ($selectOrElement instanceof Tag)
+        if ($selectOrElement instanceof pQryTag)
             $filter = array($selectOrElement);
-        else if($selectOrElement instanceof Tags)
+        else if($selectOrElement instanceof pQryObj)
             $filter = $selectOrElement->toArray();
         else if (is_callable($selectOrElement)) {
             $filter = array();
@@ -546,7 +546,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
             }
         }
         else if (is_string($selectOrElement))
-            $filter = Selector::run($this->elements, $selectOrElement, array('deep'=>false));
+            $filter = pQryCore::run($this->elements, $selectOrElement, array('deep'=>false));
         else if (is_array($selectOrElement))
             $filter = $selectOrElement;
         else
@@ -563,10 +563,10 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         $list = array();
         foreach ($this->elements as $ele) {
             $ret = $ele->parent($selector);
-            if ($ret instanceof Tag)
+            if ($ret instanceof pQryTag)
                 $list[] = $ret;
         }
-        return new Tags($list, $this);
+        return new pQryObj($list, $this);
     }
     
     /**
@@ -581,7 +581,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
      */
     public function parentsUntil($elementOrSelector, $filter=null) {
         if (is_string($elementOrSelector)) {
-            $list = Selector::run($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
+            $list = pQryCore::run($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
             if (count($list))
                 $element = $list[0];
             else
@@ -591,7 +591,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         
         if (empty($filter))
             $filter = "*";
-        return new Tags(Selector::run($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
+        return new pQryObj(pQryCore::run($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
     }
     
     /**
@@ -619,17 +619,17 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
         if (is_null($selector)) {
             return $this->eq($this->current - 1);
         }
-        else if ($selector instanceof Tag) {
+        else if ($selector instanceof pQryTag) {
             if (in_array($selector, $this->elements))
                 return $selector->prev();
-            return new Tags(array(), $this);
+            return new pQryObj(array(), $this);
         }
         else {
-            $ret = Selector::run(array_slice($this->elements, 0, $this->current), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::run(array_slice($this->elements, 0, $this->current), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
-                return new Tags(array(), $this);
+                return new pQryObj(array(), $this);
         }
     }
     
@@ -646,23 +646,23 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
     public function prevUntil($elementOrSelector, $filter=null) {
         if (empty($elementOrSelector))
             $end = $this->current;
-        else if($elementOrSelector instanceof Tag)
+        else if($elementOrSelector instanceof pQryTag)
             $end = $elementOrSelector->index();
         else if(is_string($elementOrSelector))
             return $this->prevUntil($this->prev($elementOrSelector), $filter);
         else
             $end = 0;
         if (is_null($filter)) {
-            return new Tags(array_slice($this->elements, 0, $end), $this);
+            return new pQryObj(array_slice($this->elements, 0, $end), $this);
         }
-        else if ($filter instanceof Tag) {
+        else if ($filter instanceof pQryTag) {
             if (in_array($filter, $this->elements))
                 return $filter->prevUntil($elementOrSelector);
-            return new Tags(array(), $this);
+            return new pQryObj(array(), $this);
         }
         else {
-            $list = Selector::run(array_slice($this->elements, 0, $end), $selector, array('deep'=>false));
-            return new Tags($list, $this);
+            $list = pQryCore::run(array_slice($this->elements, 0, $end), $selector, array('deep'=>false));
+            return new pQryObj($list, $this);
         }
     }
     
@@ -726,7 +726,7 @@ class Tags implements IteratorAggregate, arrayaccess, Countable {
      * @see \Tag::siblings
      */
     public function siblings($selector=null) {
-        $newTags = new Tags(array(), $this);
+        $newTags = new pQryObj(array(), $this);
         foreach ($this->elements as $elem) { $newTags->merge($elem->siblings($selector)); }
         return $newTags;
     }
