@@ -5,7 +5,7 @@
  *
  * @author Adriano_2012
  */
-class Selector {
+class pQryCore {
     
     /**
      * Verify if $selector parameter is a valid selector
@@ -33,7 +33,7 @@ class Selector {
      * @return array List of elements that matches selection
      */
     public static function run($targets, $selector, $config=array()) {
-        if ($targets instanceof Tags)
+        if ($targets instanceof pQryObj)
             $targets = $targets->toArray();
         
         if (self::isSelector($selector)) {

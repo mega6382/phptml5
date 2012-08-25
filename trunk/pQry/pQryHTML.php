@@ -3,7 +3,7 @@
 /**
  * Classe Genérica para criar uma classe com o nome informado pelo usuário
  */
-class GenericTag extends Tag {
+class pQryHTML extends pQryTag {
     private $name;
     private $endTag;
     
