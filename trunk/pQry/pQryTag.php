@@ -407,7 +407,7 @@ abstract class pQryTag {
             if ($content instanceof pQryTag)
                 $list[] = $content;
         }
-        return new pQryObj(pQryCore::run($list, $selector, array('deep'=>false)), $this);
+        return new pQryObj(pQryCore::search($list, $selector, array('deep'=>false)), $this);
     }
     
     /**
@@ -436,7 +436,7 @@ abstract class pQryTag {
      * @return mixed \Tag or \Tags
      */
     public function closest($selector=null) {
-        $data = pQryCore::run(array($this), $selector, array('max'=>1, 'dir'=>'up'));
+        $data = pQryCore::search(array($this), $selector, array('max'=>1, 'dir'=>'up'));
         if (empty($data))
             return new pQryObj($this);
         else
@@ -655,7 +655,7 @@ abstract class pQryTag {
      * @return \pQryObj
      */
     public function find($selector) {
-        return new pQryObj(pQryCore::run($this, $selector), $this);
+        return new pQryObj(pQryCore::search($this, $selector), $this);
     }
     
     /**
@@ -688,7 +688,7 @@ abstract class pQryTag {
         else {
             foreach ($this->content as $content) {
                 if ($content instanceof pQryTag) {
-                    if (count(pQryCore::run($content, $selectorOrTag)))
+                    if (count(pQryCore::search($content, $selectorOrTag)))
                         $list[] = $content;
                 }
             }
@@ -768,7 +768,7 @@ abstract class pQryTag {
         }
         else {
             if (is_string($selectorOrTag)) {
-                $list = pQryCore::run($this->children(), $selectorOrTag, array('deep'=>false, 'max'=>1));
+                $list = pQryCore::search($this->children(), $selectorOrTag, array('deep'=>false, 'max'=>1));
                 if (count($list))
                     $selectorOrTag = $list[0];
                 else
@@ -819,7 +819,7 @@ abstract class pQryTag {
         else if (is_callable($selectorOrOther))
             return $selectorOrOther($this);
         else
-            return (bool)count(pQryCore::run($this, $selectorOrOther, array('deep'=>false)));
+            return (bool)count(pQryCore::search($this, $selectorOrOther, array('deep'=>false)));
     }
     
     /**
@@ -841,6 +841,125 @@ abstract class pQryTag {
     }
     
     /**
+     * Verify if the object satisfy the rules
+     * @param array $rules rules list
+     *      id - Id to filter without #
+     *      tag - Tag name to filter or * for include all
+     *      class - Class name to filter without .
+     *      attr - List of attributes, operator and value to filter. Operator and values are optionally
+     *          operators:
+     *              |= Selects elements that have the specified attribute with a value either equal to a given string or starting with that string followed by a hyphen (-)
+     *              *= Selects elements that have the specified attribute with a value containing the a given substring.
+     *              ~= Selects elements that have the specified attribute with a value containing a given word, delimited by spaces.
+     *              $= Selects elements that have the specified attribute with a value ending exactly with a given string. The comparison is case sensitive.
+     *               =  Selects elements that have the specified attribute with a value exactly equal to a certain value.
+     *              != Select elements that either don't have the specified attribute, or do have the specified attribute but not with a certain value.
+     *              ^= Selects elements that have the specified attribute with a value beginning exactly with a given string.
+     *      pseudo - List of pseudo elements to match
+     *          :button
+     *          :checkbox
+     *          :checked
+     *          :empty
+     *          :file
+     *          :header
+     *          :image
+     *          :input
+     *          :password
+     *          :radio
+     *          :reset
+     *          :selected
+     *          :submit
+     *
+     * @return boolean true if match, false otherwise
+     */
+    public function match($rules) {
+        if (!empty($rules['tag']) && $rules['tag'] != $this->getTagName() && $rules['tag'] != '*')
+            return false;
+        if (!empty($rules['id']) && $this->id() != $rules['id'])
+            return false;
+        if (!empty($rules['class']) && !in_array($rules['class'], explode(' ', $this->attr('class'))))
+            return false;
+        if (!empty($rules['attr'])) {
+            foreach ($rules['attr'] as $attr => $val) {
+                if (is_numeric($attr)) $attr = $val;
+                $vl = $this->attr($attr);
+                if (!is_array($val) && $vl == '')
+                    return false;
+                else {
+                    switch($val['op']) {
+                        case '=':
+                            if ($vl != $val['value']) return false;
+                            break;
+                        case '!=':
+                            if ($vl == $val['value']) return false;
+                            break;
+                        case '*=':
+                            if (strpos($vl, $val['value']) === false) return false;
+                            break;
+                        case '^=':
+                            if (strpos($vl, $val['value']) !== 0) return false;
+                            break;
+                        case '$=':
+                            if (substr($vl, -1 * strlen($val['value'])) !== $val['value']) return false;
+                            break;
+                        case '|=':
+                            if ($vl != $val['value'] && strpos($vl, $val['value'] . '-') !== 0) return false;
+                            break;
+                        case '~=':
+                            if (!in_array($val['value'], explode(' ', $vl))) return false;
+                            break;
+                    }
+                }
+            }
+        }
+        if (!empty($rules['pseudo'])) {
+            foreach ($rules['pseudo'] as $rule) {
+                switch ($rule) {
+                    case ':button': case 'button':
+                        if (!in_array($this->getTagName(), array('button', 'input')))
+                           return false;
+                        if ($this->getTagName() == 'input' && !in_array($this->attr('type'), array('button','submit','reset')))
+                           return false;
+                        break;
+                    case ':checkbox': case 'checkbox': 
+                    case ':file': case 'file':
+                    case ':image': case 'image':
+                    case ':password': case 'password':
+                    case ':radio': case 'radio':    
+                        if ($rule[0] == ':') $rule = substr($rule,1);
+                        $rule = array('tag'=>'input', 'attr'=>array('type'=>array('op'=>'=', 'value'=>$rule)));
+                        if (!$this->match($rule)) return false;
+                        break;
+                    case ':checked': case 'checked':
+                        $rule = array('tag'=>'input', 'attr'=>array(
+                                'type'=>array('op'=>'=', 'value'=>'checkbox'),
+                                'checked'
+                            ));
+                        if (!$this->match($rule)) return false;
+                        break; 
+                   case ':empty': case 'empty':
+                       if (!count($this->content)) return false;
+                       break;
+                   case ':header': case 'header':
+                       if (!in_array($this->getTagName(), array('h1','h2','h3','h4','h5','h6')))
+                               return false;
+                       break;
+                   case ':input': case 'input':
+                       if (!in_array($this->getTagName(), array('input','h2','h3','h4','h5','h6')))
+                               return false;
+                       break;
+               /*
+               :input
+               :reset
+               :selected
+               :submit*/
+                }
+            }
+        }
+        return true;
+    }
+    
+    /**
      * Get the immediately following sibling of each element in the set of matched elements.
      * If a selector is provided, it retrieves the next sibling only if it matches that selector.
      * @param string $selector A string containing a selector expression to match elements against.
@@ -853,7 +972,7 @@ abstract class pQryTag {
         }
         else {
             $list = $this->parent()->children()->toArray();
-            $ret = pQryCore::run(array_slice($list, $this->index()+1), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::search(array_slice($list, $this->index()+1), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
@@ -896,7 +1015,7 @@ abstract class pQryTag {
             return new pQryObj(array_slice($list, $start, $end), $this);
         }
         else {
-            return new pQryObj(pQryCore::run(array_slice($list, $start, $end), $filter, array('deep'=>false)), $this);
+            return new pQryObj(pQryCore::search(array_slice($list, $start, $end), $filter, array('deep'=>false)), $this);
         }
     }
     
@@ -922,7 +1041,7 @@ abstract class pQryTag {
             }
         }
         else if (is_string($selectOrElement))
-            $filter = pQryCore::run($this->children(), $selectOrElement, array('deep'=>false));
+            $filter = pQryCore::search($this->children(), $selectOrElement, array('deep'=>false));
         else if (is_array($selectOrElement))
             $filter = $selectOrElement;
         else
@@ -950,7 +1069,7 @@ abstract class pQryTag {
         if (is_null($selector))
             return $this->parent;
         else {
-            $ret = pQryCore::run($this->parent, $selector, array('deep'=>false));
+            $ret = pQryCore::search($this->parent, $selector, array('deep'=>false));
             if (count($ret)) return $ret;
             else return new pQryObj(array(), $this);
         }
@@ -977,7 +1096,7 @@ abstract class pQryTag {
      */
     public function parentsUntil($elementOrSelector, $filter=null) {
         if (is_string($elementOrSelector)) {
-            $list = pQryCore::run($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
+            $list = pQryCore::search($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
             if (count($list))
                 $element = $list[0];
             else
@@ -987,7 +1106,7 @@ abstract class pQryTag {
         
         if (empty($filter))
             $filter = "*";
-        return new pQryObj(pQryCore::run($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
+        return new pQryObj(pQryCore::search($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
     }
     
     /**
@@ -1027,7 +1146,7 @@ abstract class pQryTag {
         }
         else {
             $list = $this->parent()->children()->toArray();
-            $ret = pQryCore::run(array_slice($list, 0, $this->index()-1), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::search(array_slice($list, 0, $this->index()-1), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
@@ -1069,7 +1188,7 @@ abstract class pQryTag {
             return new pQryObj(array_slice($list, 0, $end), $this);
         }
         else {
-            return new pQryObj(pQryCore::run(array_slice($list, 0, $end), $filter, array('deep'=>false)), $this);
+            return new pQryObj(pQryCore::search(array_slice($list, 0, $end), $filter, array('deep'=>false)), $this);
         }
     }
     
@@ -1218,7 +1337,7 @@ abstract class pQryTag {
      * @return \pQryObj
      */
     public function siblings($selector=null) {
-        $list = pQryCore::run($this->parent()->children(), $selector, array('deep'=>false));
+        $list = pQryCore::search($this->parent()->children(), $selector, array('deep'=>false));
         return new pQryObj(array_diff($list, array($this)), $this);
     }
     

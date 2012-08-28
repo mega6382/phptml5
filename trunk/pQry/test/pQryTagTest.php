@@ -347,6 +347,90 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     }
 
     /**
+     * @covers pQryTag::match
+     * @group phptml5
+     */
+    public function testMatch() {
+        $rulelist = array();
+        $p = new pQryHTML('p');
+        $p->addClass('class1')->id('pp')->attr('title', 'Title of p')->attr('lang','pt-br');
+        $div = new pQryHTML('div');
+        $div->addClass('class1 class2')->id('dd')->attr('title', 'Div Title')->attr('lang','pt');
+        
+        $this->assertTrue($p->match($rulelist));
+        $this->assertTrue($p->match($rulelist));
+        
+        // Tag
+        $rulelist = array('tag'=>'p');
+        $this->assertTrue($p->match($rulelist));
+        $this->assertFalse($div->match($rulelist));
+        
+        $rulelist = array('tag'=>'*');
+        $this->assertTrue($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        // Class
+        $rulelist = array('class'=>'class1');
+        $this->assertTrue($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        $rulelist = array('class'=>'class2');
+        $this->assertFalse($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        // ID
+        $rulelist = array('id'=>'dd');
+        $this->assertFalse($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        $rulelist = array('id'=>'ddd');
+        $this->assertFalse($p->match($rulelist));
+        $this->assertFalse($div->match($rulelist));
+        
+        // Attributes
+        $rulelist = array('attr'=>array('title'));
+        $this->assertTrue($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        $rulelist['attr'][] = 'src';
+        $this->assertFalse($p->match($rulelist));
+        $this->assertFalse($div->match($rulelist));
+        
+        // Attributes operators
+        $rulelist = array('attr'=>array('title'=>array('op'=>'=', 'value'=>'Title of p')));
+        $this->assertTrue($p->match($rulelist));
+        $this->assertFalse($div->match($rulelist));
+        
+        $rulelist['attr']['title']['op'] = '!=';
+        $this->assertFalse($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        $rulelist = array('attr'=>array('title'=>array('op'=>'^=', 'value'=>'Title')));
+        $this->assertTrue($p->match($rulelist));
+        $this->assertFalse($div->match($rulelist));
+        
+        $rulelist = array('attr'=>array('title'=>array('op'=>'$=', 'value'=>'itle')));
+        $this->assertFalse($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        $rulelist = array('attr'=>array('title'=>array('op'=>'*=', 'value'=>'iv')));
+        $this->assertFalse($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        $rulelist = array('attr'=>array('class'=>array('op'=>'~=', 'value'=>'class2')));
+        $this->assertFalse($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        $rulelist = array('attr'=>array('lang'=>array('op'=>'|=', 'value'=>'pt')));
+        $this->assertTrue($p->match($rulelist));
+        $this->assertTrue($div->match($rulelist));
+        
+        $rulelist = array('attr'=>array('lang'=>array('op'=>'|=', 'value'=>'pts')));
+        $this->assertFalse($p->match($rulelist));
+        $this->assertFalse($div->match($rulelist));
+    }
+    
+    /**
      * @covers pQryTag::prepend
      * @group phptml5
      */
