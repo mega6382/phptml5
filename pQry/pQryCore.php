@@ -12,11 +12,118 @@ class pQryCore {
      * @param string $selector
      * @return boolean
      */
-    public static function isSelector($selector) {
+    public static function isSelector($selector, &$rules) {
         if (empty($selector))
             return false;
-        else
+        else {
+            $selectors = explode(',', $selector);
+            foreach ($selectors as $slt) {
+                $rule = array();
+                $slt = preg_replace('/ {2,}/',' ',trim(str_replace(array('"', "'"), '', $slt)));
+                $tam = strlen($slt);
+                $cursor = 0;
+                while ($cursor < $tam) {
+                    switch ($slt[$cursor]) {
+                        case '*':
+                            $rule['tag'] = '*';
+                            $cursor++;
+                            break;
+                        case '.':
+                            $ini = ++$cursor;
+                            while($cursor < $tam) {
+                                if (ctype_alnum($slt[$cursor])) $cursor++;
+                                else break;
+                            }
+                            $rule['class'] = substr($slt, $ini, $cursor - $ini);
+                            break;
+                        case '#':
+                            $ini = ++$cursor;
+                             while($cursor < $tam) {
+                                if (ctype_alnum($slt[$cursor])) $cursor++;
+                                else break;
+                            }
+                            $rule['id'] = substr($slt, $ini, $cursor - $ini);
+                            break;
+                        case '[':
+                            $ini = ++$cursor;
+                            while($cursor < $tam) {
+                                if($slt[$cursor] == ']') break;
+                                else $cursor++;
+                            }
+                            $attrval = substr($slt, $ini, $cursor - $ini);
+                            if (strlen($attrval)<3) return false;
+                            if (empty($rule['attr'])) $rule['attr'] = array();
+                            $pos = strpos($attrval, '=');
+                            
+                            // TODO test if invalid operator
+                            if ($pos === false)
+                                $rule['attr'][] = $attrval;
+                            else {
+                                if (ctype_alnum($attrval[$pos-1])) {
+                                    list($name, $val) = explode('=', $attrval);
+                                    $op = '=';
+                                }
+                                else {
+                                    $name = substr($attrval, 0, $pos-1);
+                                    $op = substr($attrval, $pos-1, 2);
+                                    $val = substr($attrval, $pos+1);
+                                }
+                                $rule['attr'][$name] = array('op'=>$op, 'value'=>$val);
+                            }
+                            $cursor++;
+                            break;
+                        case ':':
+                            // TODO test if pseudo is valid
+                            $ini = ++$cursor;
+                            while($cursor < $tam) {
+                                if(ctype_alnum($slt[$cursor])) $cursor++;
+                                else break;
+                            }
+                            if (empty($rule['pseudo'])) $rule['pseudo'] = array();
+                            $rule['pseudo'][] = substr($slt, $ini, $cursor - $ini);
+                            break;
+                        case ' ':
+                            //descendant
+                            if (in_array($slt[$cursor+1], array('>','+','~'))) {
+                                $cursor++;
+                                break;
+                            }
+                            $key = 'descendant';
+                        case '>':
+                            //child
+                            if (empty($key)) $key = 'child';
+                        case '+':
+                            //next   
+                            if (empty($key)) $key = 'next';
+                         case '~':
+                            //siblings
+                            if (empty($key)) $key = 'siblings';
+                             
+                            $newrule = array();
+                            if (self::isSelector(substr($slt, $cursor+1), $newrule))
+                                $rule[$key] = $newrule[0];
+                            else
+                                return false;
+                            $tam = 0;
+                            break;
+                        default:
+                            $ini = $cursor++;
+                            while($cursor < $tam) {
+                                if (ctype_alnum($slt[$cursor])) $cursor++;
+                                else break;
+                            }
+                            $tag = substr($slt, $ini, $cursor - $ini);
+                            if (empty($tag)) return false;
+                            $rule['tag'] = $tag;
+                    }
+                }
+                if (count($rule))
+                    $rules[] = $rule;
+                else
+                    return false;
+            }
             return true;
+        }
     }
     
     /**
@@ -37,7 +144,7 @@ class pQryCore {
             $targets = $targets->toArray();
         else if ($targets instanceof pQryTag)
             $targets = array($targets);
-        return $targets;
+        
         $defaults = array('max'=>1000, 'deep'=>true, 'dir'=>'down', 'until'=>null, 'stop'=>false);
         foreach ($defaults as $id => $vl) {
             if (empty($config[$id]))
@@ -45,20 +152,10 @@ class pQryCore {
         }
         
         $return = array();
-        if (self::isSelector($selector)) {
+        $rules = array();
+        if (self::isSelector($selector, $rules)) {
             $return = self::prepareList($targets, $config);
             
-            // Supported Selectors:
-            //      *, tagName, .class, #id, [attribute], [attribute=value], :input, :button,
-            //      parent > child, ancestor descendant, :empty, multiple with coma
-            $specialchars = array('*', '.', '#', '[', ']', ':', '>', ' ', '=');
-            $rules = array();
-            $selectors = explode(',', $selector);
-            foreach ($selectors as $i => $slt) {
-                $rules[$i] = array();
-                $slt = trim(str_replace(array('"', "'"), '', $slt));
-                
-            }
         }
         
         return $return;
