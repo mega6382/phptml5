@@ -428,6 +428,52 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
         $rulelist = array('attr'=>array('lang'=>array('op'=>'|=', 'value'=>'pts')));
         $this->assertFalse($p->match($rulelist));
         $this->assertFalse($div->match($rulelist));
+        
+        // Pseudoelements
+        $button = new pQryHTML('button');
+        $this->assertTrue($button->match(array('pseudo'=>array(':button'))));
+        $this->assertFalse($p->match(array('pseudo'=>array(':button'))));
+        
+        $checkbox = new pQryHTML('input');
+        $checkbox->attr('type', 'checkbox');
+        $this->assertTrue($checkbox->match(array('pseudo'=>array(':checkbox'))));
+        $this->assertTrue($checkbox->match(array('pseudo'=>array('checkbox'))));
+        $this->assertFalse($button->match(array('pseudo'=>array(':checkbox'))));
+        
+        $this->assertFalse($checkbox->match(array('pseudo'=>array(':checked'))));
+        $checkbox->prop('checked', true);
+        $this->assertTrue($checkbox->match(array('pseudo'=>array(':checked'))));
+        
+        $this->assertFalse($checkbox->match(array('pseudo'=>array(':disabled'))));
+        $checkbox->prop('disabled', true);
+        $this->assertTrue($checkbox->match(array('pseudo'=>array(':disabled'))));
+        
+        $this->assertFalse($checkbox->match(array('pseudo'=>array(':enabled'))));
+        $this->assertTrue($button->match(array('pseudo'=>array(':enabled'))));
+        
+        $this->assertTrue($button->match(array('pseudo'=>array(':empty'))));
+        $button->html('Click to edit');
+        $this->assertFalse($button->match(array('pseudo'=>array(':empty'))));
+        
+        $h1 = new pQryHTML('h1');
+        $this->assertTrue($h1->match(array('pseudo'=>array(':header'))));
+        $this->assertFalse($button->match(array('pseudo'=>array(':header'))));
+        
+        $this->assertFalse($h1->match(array('pseudo'=>array(':input'))));
+        $this->assertFalse($button->match(array('pseudo'=>array(':input'))));
+        $this->assertTrue($checkbox->match(array('pseudo'=>array(':input'))));
+        
+        $button->attr('type', 'reset');
+        $this->assertTrue($button->match(array('pseudo'=>array(':reset'))));
+        $this->assertFalse($checkbox->match(array('pseudo'=>array(':reset'))));
+        
+        $opt1 = new pQryHTML('option');
+        $opt1->prop('selected', true);
+        $opt2 = new pQryHTML('option');
+        
+        $this->assertTrue($opt1->match(array('pseudo'=>array(':selected'))));
+        $this->assertFalse($opt2->match(array('pseudo'=>array(':selected'))));
+        
     }
     
     /**

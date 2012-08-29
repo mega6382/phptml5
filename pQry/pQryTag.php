@@ -360,7 +360,10 @@ abstract class pQryTag {
             // Metodo Set
             if (is_string($nameOrList)) {
                 if (is_callable($value)) {
-                    $value = $value($this, $nameOrList);
+                    $oldval = $value;                    
+                    $value = @ $value($this, $nameOrList);
+                    if ($value == null || $value == '')
+                        $value = $oldval;
                 }
                 $nameOrList = array($nameOrList => $value);
             }
@@ -931,28 +934,39 @@ abstract class pQryTag {
                         if (!$this->match($rule)) return false;
                         break;
                     case ':checked': case 'checked':
-                        $rule = array('tag'=>'input', 'attr'=>array(
-                                'type'=>array('op'=>'=', 'value'=>'checkbox'),
-                                'checked'
-                            ));
-                        if (!$this->match($rule)) return false;
+                        if ($this->getTagName() != 'input') return false;
+                        if (!in_array($this->attr('type'),array('checkbox','radio'))) return false;
+                        if (!$this->prop('checked') && !$this->prop('selected')) return false;
                         break; 
-                   case ':empty': case 'empty':
-                       if (!count($this->content)) return false;
+                   case ':disabled': case 'disabled':
+                       if (!$this->prop('disabled')) return false;
                        break;
+                   case ':empty': case 'empty':
+                       if (count($this->content)) return false;
+                       break;
+                   case ':enabled': case 'enabled':
+                       if ($this->prop('disabled')) return false;
+                       break;        
                    case ':header': case 'header':
                        if (!in_array($this->getTagName(), array('h1','h2','h3','h4','h5','h6')))
                                return false;
                        break;
                    case ':input': case 'input':
-                       if (!in_array($this->getTagName(), array('input','h2','h3','h4','h5','h6')))
+                       if (!in_array($this->getTagName(), array('input', 'select', 'textarea')))
                                return false;
                        break;
-               /*
-               :input
-               :reset
-               :selected
-               :submit*/
+                   case ':reset': case 'reset':
+                   case ':submit': case 'submit':
+                        if ($rule[0] == ':') $rule = substr($rule,1);
+                        if (!in_array($this->getTagName(), array('button', 'input')))
+                           return false;
+                        if ($this->attr('type') != $rule)
+                           return false;
+                        break;
+                    case ':selected': case 'selected':
+                        if ($this->getTagName() != 'option') return false;
+                        if (!$this->prop('selected')    ) return false;
+                        break; 
                 }
             }
         }
