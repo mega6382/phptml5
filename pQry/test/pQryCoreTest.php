@@ -26,39 +26,49 @@ class pQryCoreTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryCore::isSelector
-     * @group  pQryteste
+     * @covers pQryCore::getRules
+     * @covers pQryCore::cleanSelector
+     * @group  pQry
      */
     public function testIsSelector() {
-        $this->assertFalse(pQryCore::isSelector('', $rules));
-        $this->assertEmpty($rules);
-        $this->assertTrue(pQryCore::isSelector('*', $rules));
+        $this->assertFalse(pQryCore::isSelector(''));
+        $this->assertEmpty(pQryCore::getRules(''));
+        $this->assertTrue(pQryCore::isSelector('*'));
+        $rules = pQryCore::getRules('*');
         $this->assertNotEmpty($rules);
         $this->assertCount(1, $rules);
         $this->assertEquals('*', $rules[0]['tag']);
-        $rules = array();
-        $this->assertTrue(pQryCore::isSelector('.class', $rules));
-        $this->assertEquals('class', $rules[0]['class']);
-        $this->assertTrue(pQryCore::isSelector('*.class', $rules));
-        $this->assertEquals('class', $rules[1]['class']);
-        $this->assertEquals('*', $rules[1]['tag']);
-        $this->assertTrue(pQryCore::isSelector('#id', $rules));
-        $this->assertEquals('id', $rules[2]['id']);
-        $this->assertTrue(pQryCore::isSelector('[type]', $rules));
-        $this->assertCount(1, $rules[3]['attr']);
-        $this->assertTrue(in_array('type', $rules[3]['attr']));
-        $this->assertFalse(pQryCore::isSelector('[]', $rules));
-        $this->assertTrue(pQryCore::isSelector('[type=text]', $rules));
-        $this->assertArrayHasKey('type', $rules[4]['attr']);
-        $this->assertEquals('text', $rules[4]['attr']['type']['value']);
-        $this->assertEquals('=', $rules[4]['attr']['type']['op']);
-        $this->assertTrue(pQryCore::isSelector('[type$=text]', $rules));
-        $this->assertArrayHasKey('type', $rules[5]['attr']);
-        $this->assertEquals('text', $rules[5]['attr']['type']['value']);
-        $this->assertEquals('$=', $rules[5]['attr']['type']['op']);
-        $this->assertTrue(pQryCore::isSelector(':hidden', $rules));
-        $this->assertTrue(in_array('hidden', $rules[6]['pseudo']));
-        $this->assertTrue(pQryCore::isSelector('div', $rules));
-        $this->assertEquals('div', $rules[7]['tag']);
+        $this->assertTrue(pQryCore::isSelector('.class'));
+        $r1 = pQryCore::getRules('.class');
+        $this->assertEquals('class', $r1[0]['class']);
+        $this->assertTrue(pQryCore::isSelector('*.class'));
+        $r2 = pQryCore::getRules('*.class');
+        $this->assertEquals('class', $r2[0]['class']);
+        $this->assertEquals('*', $r2[0]['tag']);
+        $this->assertTrue(pQryCore::isSelector('#id'));
+        $r3 = pQryCore::getRules('#id');
+        $this->assertEquals('id', $r3[0]['id']);
+        $this->assertTrue(pQryCore::isSelector('[type]'));
+        $r4 = pQryCore::getRules('[type]');
+        $this->assertCount(1, $r4[0]['attr']);
+        $this->assertTrue(in_array('type', $r4[0]['attr']));
+        $this->assertFalse(pQryCore::isSelector('[]'));
+        $this->assertTrue(pQryCore::isSelector('[type=text]'));
+        $r5 = pQryCore::getRules('[type=text]');
+        $this->assertArrayHasKey('type', $r5[0]['attr']);
+        $this->assertEquals('text', $r5[0]['attr']['type']['value']);
+        $this->assertEquals('=', $r5[0]['attr']['type']['op']);
+        $this->assertTrue(pQryCore::isSelector('[type$=text]'));
+        $r6 = pQryCore::getRules('[type$=text]');
+        $this->assertArrayHasKey('type', $r6[0]['attr']);
+        $this->assertEquals('text', $r6[0]['attr']['type']['value']);
+        $this->assertEquals('$=', $r6[0]['attr']['type']['op']);
+        $this->assertTrue(pQryCore::isSelector(':hidden'));
+        $r7 = pQryCore::getRules(':hidden');
+        $this->assertTrue(in_array('hidden', $r7[0]['pseudo']));
+        $this->assertTrue(pQryCore::isSelector('div'));
+        $r8 = pQryCore::getRules('div');
+        $this->assertEquals('div', $r8[0]['tag']);
         
         $ops = array(
             array('blockquote','#meudiv','id','meudiv'),
@@ -71,38 +81,43 @@ class pQryCoreTest extends PHPUnit_Framework_TestCase {
                         'title'=>array('op'=>'!=','value'=>'Alo'))
                 ),
         );
-        $i = 8;
+        
         foreach ($ops as $op) {
-            $this->assertTrue(pQryCore::isSelector($op[0].$op[1], $rules));            
-            $this->assertEquals($op[0], $rules[$i]['tag']);
-            $this->assertEquals($op[3], $rules[$i][$op[2]]);
-            $i++;
+            $this->assertTrue(pQryCore::isSelector($op[0].$op[1]));
+            $rules = pQryCore::getRules($op[0].$op[1]);
+            $this->assertEquals($op[0], $rules[0]['tag']);
+            $this->assertEquals($op[3], $rules[0][$op[2]]);
         }
         
         $conectors = array('descendant' => ' ', 'next' => ' + ', 'child' => ' > ', 'siblings' => ' ~ ');
         foreach ($conectors as $c => $v) {
-            $crules = array();
-            $this->assertTrue(pQryCore::isSelector('*'. $v .' p', $crules)); 
-            $this->assertEquals(array('tag'=>'*',$c=>array('tag'=>'p')), $crules[0]);
+            $this->assertTrue(pQryCore::isSelector('*'. $v .' p')); 
+            $this->assertEquals(array(array('tag'=>'*',$c=>array('tag'=>'p'))), 
+                    pQryCore::getRules('*'. $v .' p'));
+             
+            $this->assertEquals(array(array('tag'=>'blockquote',$c=>array('class'=>'p'))), 
+                    pQryCore::getRules('blockquote '. $v .' .p'));
             
-            $this->assertTrue(pQryCore::isSelector('blockquote '. $v .' .p', $crules)); 
-            $this->assertEquals(array('tag'=>'blockquote',$c=>array('class'=>'p')), $crules[1]);
+            $this->assertTrue(pQryCore::isSelector('.test'. $v .'#id')); 
+            $this->assertEquals(array(array('class'=>'test',$c=>array('id'=>'id'))), 
+                    pQryCore::getRules('.test'. $v .'#id'));
             
-            $this->assertTrue(pQryCore::isSelector('.test'. $v .'#id', $crules)); 
-            $this->assertEquals(array('class'=>'test',$c=>array('id'=>'id')), $crules[2]);
+            $this->assertTrue(pQryCore::isSelector('#i'. $v .'*')); 
+            $this->assertEquals(array(array('id'=>'i',$c=>array('tag'=>'*'))), 
+                    pQryCore::getRules('#i'. $v .'*'));
             
-            $this->assertTrue(pQryCore::isSelector('#i'. $v .'*', $crules)); 
-            $this->assertEquals(array('id'=>'i',$c=>array('tag'=>'*')), $crules[3]);
+            $this->assertTrue(pQryCore::isSelector('[name]'. $v .':input')); 
+            $this->assertEquals(array(array('attr'=>array('name'),$c=>array('pseudo'=>array('input')))),
+                    pQryCore::getRules('[name]'. $v .':input'));
             
-            $this->assertTrue(pQryCore::isSelector('[name]'. $v .':input', $crules)); 
-            $this->assertEquals(array('attr'=>array('name'),$c=>array('pseudo'=>array('input'))), $crules[4]);
-            
-            $this->assertTrue(pQryCore::isSelector('div:button'. $v .'#id[x!=y]', $crules)); 
-            $this->assertEquals(array('tag'=>'div', 'pseudo'=>array('button'),$c=>array('id'=>'id', 'attr'=>array('x'=>array('op'=>'!=', 'value'=>'y')))), $crules[5]);
+            $this->assertTrue(pQryCore::isSelector('div:button'. $v .'#id[x!=y]')); 
+            $this->assertEquals(array(array('tag'=>'div', 'pseudo'=>array('button'),$c=>array('id'=>'id', 
+                'attr'=>array('x'=>array('op'=>'!=', 'value'=>'y'))))), 
+                    pQryCore::getRules('div:button'. $v .'#id[x!=y]'));
         }
         
-        $this->assertTrue(pQryCore::isSelector('div:button > #id[x!=y] + [name][type=text]', $crules)); 
-        $this->assertEquals(array(  'tag'=>'div', 
+        $this->assertTrue(pQryCore::isSelector('div:button > #id[x!=y] + [name][type=text]')); 
+        $this->assertEquals(array(array(  'tag'=>'div', 
                                     'pseudo'=>array('button'),
                                     'child'=> array( 'id'=>'id', 
                                                      'attr'=>array('x'=>array('op'=>'!=', 'value'=>'y')),
@@ -113,18 +128,23 @@ class pQryCoreTest extends PHPUnit_Framework_TestCase {
                                                          )
                                                      )
                                               )
-                                  ), $crules[6]);
+                                  )), 
+                pQryCore::getRules('div:button > #id[x!=y] + [name][type=text]'));
+        
+        $this->assertTrue(pQryCore::isSelector('div:button, #id[x!=y], [name][type=text]')); 
+        $double = pQryCore::getRules('div:button, #id[x!=y], [name][type=text]');
+        $this->assertCount(3, $double);
+        $this->assertEquals(array('tag'=>'div','pseudo'=>array('button')), $double[0]);
+        $this->assertEquals(array('id'=>'id', 'attr'=>array('x'=>array('op'=>'!=', 'value'=>'y'))), $double[1]);
+        $this->assertEquals(array('attr'=>array('name', 'type' => array('op'=>'=', 'value'=>'text'))), $double[2]);
     }
 
     /**
-     * @covers pQryCore::search
-     * @todo   Implement testSearch().
+     * @covers pQryCore::select
+     * @group pQrytest
      */
-    public function testSearch() {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-                'This test has not been implemented yet.'
-        );
+    public function testSelect() {
+        
     }
 
 }

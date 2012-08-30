@@ -410,7 +410,7 @@ abstract class pQryTag {
             if ($content instanceof pQryTag)
                 $list[] = $content;
         }
-        return new pQryObj(pQryCore::search($list, $selector, array('deep'=>false)), $this);
+        return new pQryObj(pQryCore::select($list, $selector, array('deep'=>false)), $this);
     }
     
     /**
@@ -439,7 +439,7 @@ abstract class pQryTag {
      * @return mixed \Tag or \Tags
      */
     public function closest($selector=null) {
-        $data = pQryCore::search(array($this), $selector, array('max'=>1, 'dir'=>'up'));
+        $data = pQryCore::select(array($this), $selector, array('max'=>1, 'dir'=>'up'));
         if (empty($data))
             return new pQryObj($this);
         else
@@ -658,7 +658,7 @@ abstract class pQryTag {
      * @return \pQryObj
      */
     public function find($selector) {
-        return new pQryObj(pQryCore::search($this, $selector), $this);
+        return new pQryObj(pQryCore::select($this, $selector), $this);
     }
     
     /**
@@ -691,7 +691,7 @@ abstract class pQryTag {
         else {
             foreach ($this->content as $content) {
                 if ($content instanceof pQryTag) {
-                    if (count(pQryCore::search($content, $selectorOrTag)))
+                    if (count(pQryCore::select($content, $selectorOrTag)))
                         $list[] = $content;
                 }
             }
@@ -771,7 +771,7 @@ abstract class pQryTag {
         }
         else {
             if (is_string($selectorOrTag)) {
-                $list = pQryCore::search($this->children(), $selectorOrTag, array('deep'=>false, 'max'=>1));
+                $list = pQryCore::select($this->children(), $selectorOrTag, array('deep'=>false, 'max'=>1));
                 if (count($list))
                     $selectorOrTag = $list[0];
                 else
@@ -822,7 +822,7 @@ abstract class pQryTag {
         else if (is_callable($selectorOrOther))
             return $selectorOrOther($this);
         else
-            return (bool)count(pQryCore::search($this, $selectorOrOther, array('deep'=>false)));
+            return (bool)count(pQryCore::select($this, $selectorOrOther, array('deep'=>false)));
     }
     
     /**
@@ -986,7 +986,7 @@ abstract class pQryTag {
         }
         else {
             $list = $this->parent()->children()->toArray();
-            $ret = pQryCore::search(array_slice($list, $this->index()+1), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::select(array_slice($list, $this->index()+1), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
@@ -1029,7 +1029,7 @@ abstract class pQryTag {
             return new pQryObj(array_slice($list, $start, $end), $this);
         }
         else {
-            return new pQryObj(pQryCore::search(array_slice($list, $start, $end), $filter, array('deep'=>false)), $this);
+            return new pQryObj(pQryCore::select(array_slice($list, $start, $end), $filter, array('deep'=>false)), $this);
         }
     }
     
@@ -1055,7 +1055,7 @@ abstract class pQryTag {
             }
         }
         else if (is_string($selectOrElement))
-            $filter = pQryCore::search($this->children(), $selectOrElement, array('deep'=>false));
+            $filter = pQryCore::select($this->children(), $selectOrElement, array('deep'=>false));
         else if (is_array($selectOrElement))
             $filter = $selectOrElement;
         else
@@ -1083,7 +1083,7 @@ abstract class pQryTag {
         if (is_null($selector))
             return $this->parent;
         else {
-            $ret = pQryCore::search($this->parent, $selector, array('deep'=>false));
+            $ret = pQryCore::select($this->parent, $selector, array('deep'=>false));
             if (count($ret)) return $ret;
             else return new pQryObj(array(), $this);
         }
@@ -1110,7 +1110,7 @@ abstract class pQryTag {
      */
     public function parentsUntil($elementOrSelector, $filter=null) {
         if (is_string($elementOrSelector)) {
-            $list = pQryCore::search($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
+            $list = pQryCore::select($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
             if (count($list))
                 $element = $list[0];
             else
@@ -1120,7 +1120,7 @@ abstract class pQryTag {
         
         if (empty($filter))
             $filter = "*";
-        return new pQryObj(pQryCore::search($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
+        return new pQryObj(pQryCore::select($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
     }
     
     /**
@@ -1160,7 +1160,7 @@ abstract class pQryTag {
         }
         else {
             $list = $this->parent()->children()->toArray();
-            $ret = pQryCore::search(array_slice($list, 0, $this->index()-1), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::select(array_slice($list, 0, $this->index()-1), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
@@ -1202,7 +1202,7 @@ abstract class pQryTag {
             return new pQryObj(array_slice($list, 0, $end), $this);
         }
         else {
-            return new pQryObj(pQryCore::search(array_slice($list, 0, $end), $filter, array('deep'=>false)), $this);
+            return new pQryObj(pQryCore::select(array_slice($list, 0, $end), $filter, array('deep'=>false)), $this);
         }
     }
     
@@ -1351,7 +1351,7 @@ abstract class pQryTag {
      * @return \pQryObj
      */
     public function siblings($selector=null) {
-        $list = pQryCore::search($this->parent()->children(), $selector, array('deep'=>false));
+        $list = pQryCore::select($this->parent()->children(), $selector, array('deep'=>false));
         return new pQryObj(array_diff($list, array($this)), $this);
     }
     

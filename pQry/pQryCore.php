@@ -6,20 +6,33 @@
  * @author Adriano_2012
  */
 class pQryCore {
+    private static $selectors = array();
+    
+    /**
+     * Remove extra attributes and quotes
+     * @param string $selector CSS3 selector
+     * @return string new CSS3 selector
+     */
+    private static function cleanSelector($selector) {
+        return preg_replace('/ {2,}/',' ',trim(str_replace(array('"', "'"), '', $selector)));
+    }
     
     /**
      * Verify if $selector parameter is a valid selector
-     * @param string $selector
-     * @return boolean
+     * @param string $selector CSS3 selector
+     * @return boolean true if is valid false otherwise
      */
-    public static function isSelector($selector, &$rules) {
+    public static function isSelector($selector) {
         if (empty($selector))
             return false;
         else {
+            $selector = self::cleanSelector($selector);
+            if (!empty(self::$selectors[$selector])) return true;
+            $rules = array();
             $selectors = explode(',', $selector);
             foreach ($selectors as $slt) {
                 $rule = array();
-                $slt = preg_replace('/ {2,}/',' ',trim(str_replace(array('"', "'"), '', $slt)));
+                $slt = trim($slt);
                 $tam = strlen($slt);
                 $cursor = 0;
                 while ($cursor < $tam) {
@@ -99,10 +112,11 @@ class pQryCore {
                             //siblings
                             if (empty($key)) $key = 'siblings';
                              
-                            $newrule = array();
-                            if (self::isSelector(substr($slt, $cursor+1), $newrule))
-                                $rule[$key] = $newrule[0];
-                            else
+                            $newsel = substr($slt, $cursor+1);
+                            if (self::isSelector($newsel)) {
+                                $r = self::getRules($newsel);
+                                $rule[$key] = $r[0];
+                            } else
                                 return false;
                             $tam = 0;
                             break;
@@ -122,8 +136,31 @@ class pQryCore {
                 else
                     return false;
             }
+            
+            self::$selectors[$selector] = $rules;
             return true;
         }
+    }
+    
+    /**
+     * Return the rule to filter based in selector
+     * @param string $selector CSS3 selector
+     * @return array An array with rules. Each rules may contains the keys:     
+     *      tag => string
+     *      class => string
+     *      id => string
+     *      attr => array(attributename, attributename=>array('op'=>operator, 'value'=>attributevalue), ...)
+     *      pseudo => array(string, ...)
+     *      descendant => [rule]
+     *      next => [rule]
+     *      child => [rule]
+     *      siblings => [rule]
+     */
+    public static function getRules($selector) {
+        if (self::isSelector($selector))
+            return self::$selectors[self::cleanSelector($selector)];
+        else
+            return array();
     }
     
     /**
@@ -139,7 +176,7 @@ class pQryCore {
      * 
      * @return array List of elements that matches selection
      */
-    public static function search($targets, $selector, $config=array()) {
+    public static function select($targets, $selector, $config=array()) {
         if ($targets instanceof pQryObj)
             $targets = $targets->toArray();
         else if ($targets instanceof pQryTag)

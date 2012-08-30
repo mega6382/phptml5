@@ -336,7 +336,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
             $this->elements = array_filter($this->elements, $selectorOrFunction);
         }
         else {
-            $this->elements = pQryCore::search($this->elements, $selectorOrFunction, array('deep'=>false));
+            $this->elements = pQryCore::select($this->elements, $selectorOrFunction, array('deep'=>false));
         }
         return $this;
     }
@@ -370,7 +370,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
         }
         else {
             foreach ($this->elements as $content) {
-                if (count(pQryCore::search($content, $selectorOrTag)))
+                if (count(pQryCore::select($content, $selectorOrTag)))
                     $list[] = $content;
             }
         }
@@ -425,7 +425,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
      */
     public function index($selectorOrTag) {
         if (is_string($selectorOrTag)) {
-            $list = pQryCore::search($this->elements, $selectorOrTag, array('deep'=>false, 'max'=>1));
+            $list = pQryCore::select($this->elements, $selectorOrTag, array('deep'=>false, 'max'=>1));
             if (count($list))
                 $selectorOrTag = $list[0];
             else
@@ -490,7 +490,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
             return new pQryObj(array(), $this);
         }
         else {
-            $ret = pQryCore::search(array_slice($this->elements, $this->current+1), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::select(array_slice($this->elements, $this->current+1), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
@@ -526,7 +526,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
             return new pQryObj(array(), $this);
         }
         else {
-            $list = pQryCore::search(array_slice($this->elements, $this->current+1, $end), $selector, array('deep'=>false));
+            $list = pQryCore::select(array_slice($this->elements, $this->current+1, $end), $selector, array('deep'=>false));
             return new pQryObj($list, $this);
         }
     }
@@ -546,7 +546,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
             }
         }
         else if (is_string($selectOrElement))
-            $filter = pQryCore::search($this->elements, $selectOrElement, array('deep'=>false));
+            $filter = pQryCore::select($this->elements, $selectOrElement, array('deep'=>false));
         else if (is_array($selectOrElement))
             $filter = $selectOrElement;
         else
@@ -581,7 +581,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
      */
     public function parentsUntil($elementOrSelector, $filter=null) {
         if (is_string($elementOrSelector)) {
-            $list = pQryCore::search($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
+            $list = pQryCore::select($this, $elementOrSelector, array('dir'=>'up', 'max'=>1));
             if (count($list))
                 $element = $list[0];
             else
@@ -591,7 +591,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
         
         if (empty($filter))
             $filter = "*";
-        return new pQryObj(pQryCore::search($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
+        return new pQryObj(pQryCore::select($this->parent(), $filter, array('dir'=>'up', 'until'=>$element)), $this);
     }
     
     /**
@@ -625,7 +625,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
             return new pQryObj(array(), $this);
         }
         else {
-            $ret = pQryCore::search(array_slice($this->elements, 0, $this->current), $selector, array('deep'=>false, 'max'=>1));
+            $ret = pQryCore::select(array_slice($this->elements, 0, $this->current), $selector, array('deep'=>false, 'max'=>1));
             if (count($ret))
                 return $ret[0];
             else
@@ -661,7 +661,7 @@ class pQryObj implements IteratorAggregate, arrayaccess, Countable {
             return new pQryObj(array(), $this);
         }
         else {
-            $list = pQryCore::search(array_slice($this->elements, 0, $end), $selector, array('deep'=>false));
+            $list = pQryCore::select(array_slice($this->elements, 0, $end), $selector, array('deep'=>false));
             return new pQryObj($list, $this);
         }
     }
