@@ -62,7 +62,7 @@ class pQryCore {
      * 
      * @return string new CSS3 selector
      */
-    private static function cleanSelector($selector) {
+    protected static function cleanSelector($selector) {
         return preg_replace('/ {2,}/',' ',trim(str_replace(array('"', "'"), '', $selector)));
     }
     
@@ -230,24 +230,22 @@ class pQryCore {
      * @return array List of elements that matches selection
      */
     public static function select($targets, $selector, $config=array()) {
-        if ($targets instanceof pQryObj)
+        if (is_object($targets))
             $targets = $targets->toArray();
-        else if ($targets instanceof pQryTag)
-            $targets = array($targets);
         
         $defaults = array('max'=>5000, 'deep'=>true, 'dir'=>'down', 'until'=>null, 'stop'=>false);
         foreach ($defaults as $id => $vl) {
-            if (empty($config[$id]))
+            if (!array_key_exists($id, $config))
                 $config[$id] = $vl;
         }
         
         if ((is_string($selector) && self::isSelector($selector)))
             $rules = self::getRules($selector);
         else if(is_array($selector))
-            $rules = $selector;
+            $rules = array($selector);
         
         if (!empty($rules)) {
-            return self::executeRules($targets, $rules, $config); 
+            return array_unique(self::executeRules($targets, $rules, $config)); 
         }
         return array();
     }
