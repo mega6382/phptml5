@@ -147,4 +147,16 @@ class pQryCoreTest extends PHPUnit_Framework_TestCase {
         
     }
 
+    /**
+     * @covers pQryCore::getEmptyObject
+     * @group pQry
+     */
+    public function testGetEmptyObject() {
+        $obj = pQryCore::getEmptyObject();
+        $this->assertSame($obj, pQryCore::getEmptyObject());
+        $this->assertNotEmpty($obj);
+        $this->assertEquals(0, $obj->size());
+        $newobj = new pQryEmpty();
+        $this->assertNotSame($obj, $newobj);
+    }
 }

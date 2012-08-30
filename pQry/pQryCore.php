@@ -6,11 +6,60 @@
  * @author Adriano_2012
  */
 class pQryCore {
+    /**
+     * Contais an empty pQueryObject (singleton pattern)
+     * @var pQryEmpty
+     */
+    private static $empty;
+    
+    /**
+     * Contains the root element defined by user
+     * @var pQryTag
+     */
+    private static $context;
+    
+    /**
+     * Associative array with string selector as key and rules as values
+     * @var array 
+     */
     private static $selectors = array();
+    
+    /**
+     * Return the Empty object
+     * @return pQryEmpty
+     */
+    public static function getEmptyObject() {
+        if (!self::$empty) {
+            self::$empty = new pQryEmpty();
+        }
+        return self::$empty;
+    }
+    
+    /**
+     * Define a default root element
+     * @param pQryTag $defaultContext
+     * @return pQryTag
+     */
+    public static function setDefaultContext(pQryTag $defaultContext) {
+        self::$context = pQry($defaultContext);
+        return self::$context;
+    }
+    
+    /**
+     * Return the default root element, if it don't set yet, return empty element
+     * @return pQryTag
+     */
+    public static function getDefaultContext() {
+        if (!self::$context)
+            return self::getEmptyObject();
+        else
+            return self::$context;
+    }
     
     /**
      * Remove extra attributes and quotes
      * @param string $selector CSS3 selector
+     * 
      * @return string new CSS3 selector
      */
     private static function cleanSelector($selector) {
@@ -20,6 +69,7 @@ class pQryCore {
     /**
      * Verify if $selector parameter is a valid selector
      * @param string $selector CSS3 selector
+     * 
      * @return boolean true if is valid false otherwise
      */
     public static function isSelector($selector) {
@@ -145,6 +195,7 @@ class pQryCore {
     /**
      * Return the rule to filter based in selector
      * @param string $selector CSS3 selector
+     * 
      * @return array An array with rules. Each rules may contains the keys:     
      *      tag => string
      *      class => string
@@ -166,7 +217,9 @@ class pQryCore {
     /**
      * Select elements based in $selector and $config
      * @param mixed $targets - Array or Tags object list
-     * @param string $selector - String with some valid selector
+     * @param mixed $selector
+     *      String with some valid selector<br>
+     *      array of rules
      * @param array $config - Associative array with options. 
      *      Keys:
      *          max => integer,         // Max number of elements found, if presents when get max elements stop the filter. Default is 1000
@@ -182,30 +235,32 @@ class pQryCore {
         else if ($targets instanceof pQryTag)
             $targets = array($targets);
         
-        $defaults = array('max'=>1000, 'deep'=>true, 'dir'=>'down', 'until'=>null, 'stop'=>false);
+        $defaults = array('max'=>5000, 'deep'=>true, 'dir'=>'down', 'until'=>null, 'stop'=>false);
         foreach ($defaults as $id => $vl) {
             if (empty($config[$id]))
                 $config[$id] = $vl;
         }
         
-        $return = array();
-        $rules = array();
-        if (self::isSelector($selector, $rules)) {
-            $return = self::prepareList($targets, $config);
-            
-        }
+        if ((is_string($selector) && self::isSelector($selector)))
+            $rules = self::getRules($selector);
+        else if(is_array($selector))
+            $rules = $selector;
         
-        return $return;
+        if (!empty($rules)) {
+            return self::executeRules($targets, $rules, $config); 
+        }
+        return array();
     }
     
     /**
-     * Extract filters based in $config
+     * Execute rules to filter elements
      * @param array $targets List of Tag
-     * @param array $config Based in config array used in self::search
-     * @param array $container List of elements in list
-     * @return array Return $container - List of elements in list
+     * @param array $rules List of rules to filter $targets
+     * @param array $config Based in config array
+     * 
+     * @return array List of elements Tag that complies with the rules and settings
      */
-    protected  static function prepareList($targets, $selector, &$config, $container=array()) {
+    protected  static function executeRules($targets, $rules, &$config, $container=array()) {
         foreach ($targets as $obj) {
             if ($config['stop']) break;
             if ($obj == $config['until'] || $config['max'] == count($container)) {
@@ -213,15 +268,19 @@ class pQryCore {
                 break;
             }
             
-            if ($obj->match($selector))
-                $container[] = $obj;
+            foreach ($rules as $rule) {
+                if ($obj->match($rule)) {
+                    $container[] = $obj;
+                    break;
+                }
+            }
             
             if ($config['deep']) {
                 if ($config['dir'] == 'down') {
-                    $container = self::prepareList($obj->children()->toArray(), $selector, $config, $container);
+                    $container = self::executeRules($obj->children()->toArray(), $rules, $config, $container);
                 }
                 else {
-                    $container = self::prepareList($obj->parent()->toArray(), $selector, $config, $container);
+                    $container = self::executeRules($obj->parent()->toArray(), $rules, $config, $container);
                 }
             }
         }
