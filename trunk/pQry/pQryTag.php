@@ -876,6 +876,28 @@ abstract class pQryTag {
      * @return boolean true if match, false otherwise
      */
     public function match($rules) {
+        if (array_key_exists('descendant', $rules)) {
+             $r = $rules['descendant'];
+             unset($rules['descendant']);
+             //TODO foreach parents
+             $rules = $r;
+        } else if(array_key_exists ('next', $rules)) {
+             $r = $rules['next'];
+             unset($rules['next']);
+             if (!$this->prev()->match($rules)) return false;
+             $rules = $r;
+        } else if(array_key_exists ('child', $rules)) {
+             $r = $rules['child'];
+             unset($rules['child']);
+             if (!$this->parent()->match($rules)) return false;
+             $rules = $r;
+        } else if(array_key_exists ('siblings', $rules)) {
+            $r = $rules['siblings'];
+             unset($rules['siblings']);
+             //TODO foreach antecessors siblings
+             $rules = $r;
+        }
+ 
         if (!empty($rules['tag']) && $rules['tag'] != $this->getTagName() && $rules['tag'] != '*')
             return false;
         if (!empty($rules['id']) && $this->id() != $rules['id'])
