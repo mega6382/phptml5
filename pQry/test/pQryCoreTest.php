@@ -141,9 +141,51 @@ class pQryCoreTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryCore::select
+     * @covers pQryCore::executeRules
      * @group pQrytest
      */
     public function testSelect() {
+        $target = new pQryHTML('body');
+        $elements = array('div','p','h1','footer');
+        $objs = $target->toArray();
+        foreach ($elements as $elm) {
+            $$elm = new pQryHTML($elm);
+            $target->append($$elm);
+            $objs[] = $$elm;
+        }
+        
+        $s1 = pQryCore::select($target, array('tag' => '*'), array('deep'=>false));
+        $this->assertCount(1, $s1);
+        $this->assertTrue(in_array($target, $s1));
+        
+        $s2 = pQryCore::select($target, array('tag' => '*'));
+        $this->assertCount(count($elements)+1, $s2);
+        $this->assertTrue(in_array($target, $s2));
+        foreach ($elements as $elem)
+            $this->assertTrue(in_array($$elem, $s2));
+        
+        $this->assertEquals($s2, pQryCore::select($objs, array('tag' => '*')));
+        $this->assertEquals($s2, pQryCore::select($objs, array('tag' => '*'), array('deep'=>false)));
+        $this->assertCount(2, pQryCore::select($objs, array('tag' => '*'), array('max'=>2)));
+        $s3 = pQryCore::select($objs, array('tag' => '*'), array('until'=>$h1));
+        $this->assertCount(3, $se);
+        $this->assertTrue(in_array($target, $s3));
+        $this->assertTrue(in_array($div, $s3));
+        $this->assertTrue(in_array($p, $s3));
+        $this->assertFalse(in_array($h1, $s3));
+        $this->assertFalse(in_array($footer, $s3));
+        
+        $this->assertEquals(array($div), pQryCore::select($target, 'div'));
+        $this->assertEquals(array($h1), pQryCore::select($target, ':header'));
+        
+        $footer->attr('title', 'Footer message');
+        $this->assertEquals(array($h1, $footer), pQryCore::select($target, ':header, [title]'));
+        
+        $a1 = new pQryHTML("a");
+        $footer->append($a1);
+        $this->assertEquals(array($footer), pQryCore::select($a1, '[title]', array('dir'=>'up')));
+        $this->assertCount(2, pQryCore::select($a1, '*', array('dir'=>'up')));
+        $this->assertCount(1, pQryCore::select($a1, '*', array('dir'=>'up', 'deep'=>false)));
         
     }
 

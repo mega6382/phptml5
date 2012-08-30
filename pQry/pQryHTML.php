@@ -13,7 +13,7 @@ class pQryHTML extends pQryTag {
      * @param string $tag Nome da tag que representa o elemento
      * @param boolean $endTag Valor lógico que define se a tag possui fechamento (TRUE) ou não (FALSE)
      */
-    public function __construct($tag, $endTag=true){
+    public function __construct($tag, $endTag=null){
         $this->name = $tag;
         $this->endTag = $endTag;
     }
@@ -27,6 +27,8 @@ class pQryHTML extends pQryTag {
     }
 
     protected function hasEndtag() {
+        if (is_null($this->endTag))
+            return !in_array($this->name, array('area','base','br','col','command','embed','hr','img','input','link','meta','param','source'));
         return $this->endTag;
     }
 }

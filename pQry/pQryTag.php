@@ -110,7 +110,7 @@ abstract class pQryTag {
             $content = $this->parseInternal($content($this));
         
         if ($content instanceof pQryTag) {
-            if ($content instanceof pQryEmpty) return $content->content;
+            if ($content == pQryCore::getEmptyObject()) return array();
             else return array($content);
         }
         else if($content instanceof pQryObj)
@@ -180,7 +180,8 @@ abstract class pQryTag {
         
         $list = array();
         foreach ($nodes as $node) {
-            $list[] = self::parseNode($node);
+            if (is_array($node)) 
+                $list[] = self::parseNode($node);
         }
         
         return $list;
@@ -324,6 +325,7 @@ abstract class pQryTag {
         foreach ($contents as $content) {
             $this->insertIn($content, count($this->content));
         }
+        
         return $this;
     }
     
@@ -401,16 +403,15 @@ abstract class pQryTag {
      * Get the children of each element in the set of matched elements, optionally filtered by a selector.
      * 
      * @return pQryObj List of children
-     * @toto implements selector
      */
     public function children($selector=null) {
-        if (is_null($selector)) $selector = "*";
         $list = array();
         foreach ($this->content as $content) {
             if ($content instanceof pQryTag)
                 $list[] = $content;
         }
-        return new pQryObj(pQryCore::select($list, $selector, array('deep'=>false)), $this);
+        if (is_null($selector)) return new pQryObj($list, $this);
+        else return new pQryObj(pQryCore::select($list, $selector, array('deep'=>false)), $this);
     }
     
     /**
@@ -1094,20 +1095,14 @@ abstract class pQryTag {
      * @return mixed \Tag or empty \Tags when not found next
      */
     public function parent($selector=null) {
-        if (empty($this->parent) && is_null($selector)) {
-            if ($this instanceof pQryEmpty)
-                return new pQryObj($this);
-            else {
-                $obj = new pQryEmpty();
-                $obj->insertIn($this, 0);
-            }
-        }
+        if (empty($this->parent)) return pQryCore::getEmptyObject();
+        
         if (is_null($selector))
             return $this->parent;
         else {
             $ret = pQryCore::select($this->parent, $selector, array('deep'=>false));
-            if (count($ret)) return $ret;
-            else return new pQryObj(array(), $this);
+            if (count($ret)) return $ret[0];
+            else return pQryCore::getEmptyObject();
         }
     }
     
@@ -1412,12 +1407,12 @@ abstract class pQryTag {
     }
     
     /**
-     * Retrieve all the DOM elements contained in the jQuery set, as an array.
+     * Retrieve the element as an array.
      * 
      * @return array
      */
     public function toArray() {
-        return $this->children()->toArray();
+        return array($this);
     }
     
     /**

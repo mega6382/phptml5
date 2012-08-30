@@ -11,3 +11,4 @@ require_once 'pQryHTML.php';
 require_once 'pQryEmpty.php';
 require_once 'HTMLParser.php';
 
+libxml_use_internal_errors(true);

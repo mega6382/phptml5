@@ -39,7 +39,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
      * @covers pQryTag::addClass
      * @covers pQryTag::hasClass
      * @covers pQryTag::removeClass
-     * @group phptml5
+     * @group pQry
      */
     public function testClass() {
         $this->assertEquals($this->object, $this->object->addClass('className'));
@@ -98,7 +98,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
         
         // root element doesn't has parent / return just element
         $tags = $div->after('<a href="http://#">link</a>')->parent();
-        $this->assertTrue($tags instanceof pQryEmpty);
+        $this->assertSame($tags, pQryCore::getEmptyObject());
         $this->assertEquals( $html . '<a href="http://#">link</a>', $tags->toString());
     }
     
@@ -106,7 +106,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
      * @covers pQryTag::append
      * @covers pQryTag::appendTo
      * @covers pQryTag::size
-     * @group phptml5
+     * @group pQry
      */
     public function testAppend() {
         $p1 = new pQryHTML('p');
@@ -141,7 +141,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     /**
      * @covers pQryTag::attr
      * @covers pQryTag::removeAttr
-     * @group phptml5
+     * @group pQry
      */
     public function testAttr() {
         $this->assertEquals($this->object, $this->object->attr('tiTle', 'My title'));
@@ -184,7 +184,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     /**
      * @covers pQryTag::cloneThis
      * @covers pQryTag::__clone
-     * @group  phptml5
+     * @group  pQry
      */
     public function testCloneThis() {
         $p = new pQryHTML('p');
@@ -214,7 +214,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryTag::css
-     * @group phptml5
+     * @group pQry
      */
     public function testCss() {
         $this->assertEquals($this->object, $this->object->css('border', '1px solid red'));
@@ -244,7 +244,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     /**
      * @covers pQryTag::data
      * @covers pQryTag::removeData
-     * @group phptml5
+     * @group pQry
      */
     public function testData() {
         $this->assertEquals($this->object, $this->object->data('data1', 'data1'));
@@ -267,7 +267,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryTag::emptyContent
-     * @group  phptml5
+     * @group  pQry
      */
     public function testEmptyContent() {
         $p = new pQryHTML('p');
@@ -286,7 +286,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryTag::emptyAttr
-     * @group phptml5
+     * @group pQry
      */
     public function testEmptyAttr() {
         $list = $this->setAttributes();
@@ -305,7 +305,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryTag::emptyAll
-     * @group phptml5
+     * @group pQry
      */
     public function testEmptyAll() {
         $this->assertEquals('<div></div>', $this->object->toString());
@@ -326,15 +326,23 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
      * @todo   Implement testHtml().
      */
     public function testHtml() {
-        // Remove the following lines when you implement this test.
-        $this->markTestIncomplete(
-                'This test has not been implemented yet.'
-        );
+        $target = new pQryHTML('body');
+        $target->html("<div id='content' class='page'><h1>Hello World!</h1>
+                       <button type='button'>Option One</button>
+                       <button type='button'>Option two</button>
+                       <button type='button' class='primary'><img src='img/test.png' alt='Test'> Option One</button>
+                       <div class='row'>
+                            <div class='span2'><p>Paragraph one</p></div>
+                            <div class='span2'><p>Paragraph two</p></div>
+                       </div>
+                       </div>
+                       <footer class='page'><b>2012</b>Developed by <span class='name'>rivolli</span><a href='#content'>top</a></footer>");
+        
     }
 
     /**
      * @covers pQryTag::id
-     * @group  phptml5
+     * @group  pQry
      */
     public function testId() {
         $this->assertEquals($this->object, $this->object->id('xyz'));
@@ -348,7 +356,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryTag::match
-     * @group phptml5
+     * @group pQry
      */
     public function testMatch() {
         $rulelist = array();
@@ -478,7 +486,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     
     /**
      * @covers pQryTag::prepend
-     * @group phptml5
+     * @group pQry
      */
     public function testPrepend() {
         $p1 = new pQryHTML('p');
@@ -508,7 +516,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     /**
      * @covers pQryTag::prop
      * @covers pQryTag::removeProp
-     * @group phptml5
+     * @group pQry
      */
     public function testProp() {
         $this->assertEquals($this->object, $this->object->prop('prop1', true));
@@ -589,7 +597,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryTag::text
-     * @group  phptml5
+     * @group  pQry
      */
     public function testText() {
        $this->assertEquals('Ola Mundo', $this->object->text('Ola Mundo')->text());
@@ -600,7 +608,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     /**
      * @covers pQryTag::toString
      * @covers pQryTag::__toString
-     * @group phptml5
+     * @group pQry
      */
     public function testToString() {
         $html = '<div></div>';
@@ -622,7 +630,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     
      /**
      * @covers pQryTag::parse
-     * @group phptml5
+     * @group pQry
      */
     public function testParse() {
         $htmls = array(
