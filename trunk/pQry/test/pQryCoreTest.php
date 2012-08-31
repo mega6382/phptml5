@@ -142,7 +142,7 @@ class pQryCoreTest extends PHPUnit_Framework_TestCase {
     /**
      * @covers pQryCore::select
      * @covers pQryCore::executeRules
-     * @group pQrytest
+     * @group pQry
      */
     public function testSelect() {
         $target = new pQryHTML('body');
@@ -168,7 +168,7 @@ class pQryCoreTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals($s2, pQryCore::select($objs, array('tag' => '*'), array('deep'=>false)));
         $this->assertCount(2, pQryCore::select($objs, array('tag' => '*'), array('max'=>2)));
         $s3 = pQryCore::select($objs, array('tag' => '*'), array('until'=>$h1));
-        $this->assertCount(3, $se);
+        $this->assertCount(3, $s3);
         $this->assertTrue(in_array($target, $s3));
         $this->assertTrue(in_array($div, $s3));
         $this->assertTrue(in_array($p, $s3));
@@ -184,8 +184,12 @@ class pQryCoreTest extends PHPUnit_Framework_TestCase {
         $a1 = new pQryHTML("a");
         $footer->append($a1);
         $this->assertEquals(array($footer), pQryCore::select($a1, '[title]', array('dir'=>'up')));
-        $this->assertCount(2, pQryCore::select($a1, '*', array('dir'=>'up')));
+        $this->assertCount(3, pQryCore::select($a1, '*', array('dir'=>'up')));
         $this->assertCount(1, pQryCore::select($a1, '*', array('dir'=>'up', 'deep'=>false)));
+        
+        $this->assertCount(0, pQryCore::select($a1, 'li', array('dir'=>'up', 'deep'=>false)));
+        $this->assertCount(0, pQryCore::select($objs, array('tag' => 'li'), array('max'=>2)));
+        $this->assertCount(0, pQryCore::select($target, array('tag' => 'li'), array('max'=>2)));
         
     }
 

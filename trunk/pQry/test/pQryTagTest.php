@@ -76,7 +76,7 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryTag::append
-     * @group phptml5
+     * @group pQry
      */
     public function testAfter() {
         $div = new pQryHTML('div');
@@ -99,7 +99,6 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
         // root element doesn't has parent / return just element
         $tags = $div->after('<a href="http://#">link</a>')->parent();
         $this->assertSame($tags, pQryCore::getEmptyObject());
-        $this->assertEquals( $html . '<a href="http://#">link</a>', $tags->toString());
     }
     
     /**
@@ -323,11 +322,12 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
 
     /**
      * @covers pQryTag::html
-     * @todo   Implement testHtml().
+     * @group pQry
      */
     public function testHtml() {
         $target = new pQryHTML('body');
-        $target->html("<div id='content' class='page'><h1>Hello World!</h1>
+        $html = "<div id='content' class='page'>
+                       <h1>Hello World!</h1>
                        <button type='button'>Option One</button>
                        <button type='button'>Option two</button>
                        <button type='button' class='primary'><img src='img/test.png' alt='Test'> Option One</button>
@@ -335,9 +335,12 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
                             <div class='span2'><p>Paragraph one</p></div>
                             <div class='span2'><p>Paragraph two</p></div>
                        </div>
-                       </div>
-                       <footer class='page'><b>2012</b>Developed by <span class='name'>rivolli</span><a href='#content'>top</a></footer>");
+                 </div><footer class='page'><b>2012</b>Developed by <span class='name'>rivolli</span><a href='#content'>top</a></footer>";
+        $target->html($html);
+        echo $target->toString();
+        $this->assertEquals('<body>'.str_replace(' ','',str_replace("'", '"', $html)).'</body>', str_replace(' ','',$target->toString()));
         
+        $this->assertCount(2, $target->children());
     }
 
     /**
@@ -539,12 +542,12 @@ class pQryTagTest extends PHPUnit_Framework_TestCase {
     /**
      * @covers pQryTag::remove
      * @covers pQryTag::parent
-     * @group  phptml5
+     * @group  pQry
      */
     public function testRemove() {
         $this->object->id('div');
-        $this->assertTrue($this->object->parent() instanceof pQryEmpty);
-        $this->assertTrue($this->object->parent()->parent() instanceof pQryObj);
+        $this->assertSame($this->object->parent(), pQryCore::getEmptyObject());
+        $this->assertSame($this->object->parent()->parent(), pQryCore::getEmptyObject());
         $p = new pQryHTML('p');
         $p->id('p');
         $div = new pQryHTML('div');
