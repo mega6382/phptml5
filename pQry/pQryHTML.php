@@ -14,7 +14,7 @@ class pQryHTML extends pQryTag {
      * @param boolean $endTag Valor lógico que define se a tag possui fechamento (TRUE) ou não (FALSE)
      */
     public function __construct($tag, $endTag=null){
-        $this->name = $tag;
+        $this->name = strtolower($tag);
         $this->endTag = $endTag;
     }
 
